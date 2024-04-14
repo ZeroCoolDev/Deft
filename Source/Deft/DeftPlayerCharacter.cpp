@@ -1,13 +1,15 @@
 #include "DeftPlayerCharacter.h"
 
 #include "Camera/CameraComponent.h"
+#include "DeftCharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 // Sets default values
-ADeftPlayerCharacter::ADeftPlayerCharacter()
+ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UDeftCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;

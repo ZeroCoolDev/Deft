@@ -12,7 +12,7 @@ class DEFT_API ADeftPlayerCharacter : public ACharacter
 
 public:
 	// Sets default values for this character's properties
-	ADeftPlayerCharacter();
+	ADeftPlayerCharacter(const FObjectInitializer& ObjectInitializer);
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
