@@ -48,7 +48,7 @@ void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 {
 	// input is a vector2S
 	FVector2D input = aValue.Get<FVector2D>();
-	UE_LOG(LogTemp, Warning, TEXT("Move Fwd/Back: %.2f, Right/Left: %.2f"), input.Y, input.X);
+	//UE_LOG(LogTemp, Warning, TEXT("Move Fwd/Back: %.2f, Right/Left: %.2f"), input.Y, input.X);
 
 	// TODO: add custom player controller
 	if (Controller)
@@ -65,7 +65,7 @@ void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 		AddMovementInput(forwardDir, input.Y);
 		AddMovementInput(rightDir, input.X);
 
-		UE_LOG(LogTemp, Warning, TEXT("speed: %.2f"), GetCharacterMovement()->Velocity.Size());
+		//UE_LOG(LogTemp, Warning, TEXT("speed: %.2f"), GetCharacterMovement()->Velocity.Size());
 	}
 }
 

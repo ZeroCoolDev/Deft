@@ -23,34 +23,33 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement | Jump", meta=(DisplayName="Jump Curve"))
 	UCurveFloat* JumpCurve;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement | Jump", meta=(DisplayName="Fall Curve"))
-	UCurveFloat* FallCurve;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement | Jump", meta=(DisplayName="Jump Fall Curve"))
+	UCurveFloat* JumpFallCurve;
 
 private:
-	void ProcessJumping(float aDeltaTime);
-	
-	void ProcessFalling(float aDeltaTime);
+	void ProcessJump(float aDeltaTime);
+	void ProcessJumpFall(float aDeltaTime);
 	
 	void SetCustomFallingMode();
-	bool FindFloorBySweep(FFindFloorResult& outFloorResult, const FVector aStartLoc, const FVector aEndLoc);
+	bool CustomFindFloor(FFindFloorResult& outFloorResult, const FVector aStartLoc, const FVector aEndLoc);
 	bool FindJumpApexTime(float& outApexTime);
 
-	// Jumping
-	float JumpTime;
+	bool bIsJumping;			// true while character is following the jump curve
+	float JumpTime;				// amount of time elapsed from the jump start
 	float PrevJumpTime;
-	float JumpCurveStartTime;
-	float JumpCurveMaxTime;
 	float PrevJumpCurveVal;
+	//  time bounds
+	float JumpCurveMinTime;
+	float JumpCurveMaxTime;
+
+	// TODO: falling is custom for everything not just jump so remove 'jump' from names
+	bool bIsJumpFalling;
+	float JumpFallTime;
+	float PrevJumpFallCurveVal;
+
+	bool bIsValidJumpCurve;
 	float JumpApexTime;
 	float JumpApexHeight;
-
-	// Falling
-	float FallTime;
-	float PrevFallCurveVal;
-
-	bool bIsJumping;
-	bool bIsValidJumpCurve;
-	bool bIsFalling;
 
 private:
 #if !UE_BUILD_SHIPPING

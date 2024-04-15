@@ -8,18 +8,6 @@ TAutoConsoleVariable<bool> CVar_UseEngineJump(TEXT("deft.jump.UseJumpCurve"), tr
 
 UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, JumpTime(0.f)
-	, PrevJumpTime(0.f)
-	, JumpCurveStartTime(0.f)
-	, JumpCurveMaxTime(0.f)
-	, PrevJumpCurveVal(0.f)
-	, JumpApexTime(0.f)
-	, JumpApexHeight(0.f)
-	, FallTime(0.f)
-	, PrevFallCurveVal(0.f)
-	, bIsJumping(false)
-	, bIsValidJumpCurve(false)
-	, bIsFalling(false)
 {
 
 }
@@ -28,25 +16,24 @@ void UDeftCharacterMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	bIsFalling = false;
-	bIsJumping = false;
+	bIsJumpFalling = false;
 
-	if (!JumpCurve)
-		UE_LOG(LogTemp, Error, TEXT("Missing Jump Curve"));
+	if (JumpCurve)
+	{
+		JumpCurve->GetTimeRange(JumpCurveMinTime, JumpCurveMaxTime);
 
-	if (!FallCurve)
-		UE_LOG(LogTemp, Error, TEXT("Missing Fall Curve"));
+		float minHeight;
+		JumpCurve->GetValueRange(minHeight, JumpApexHeight);
+		
+		bIsValidJumpCurve = FindJumpApexTime(JumpApexTime);
+		if (!bIsValidJumpCurve)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Invalid Jump Curve, no Apex found"));
+		}
 
-	JumpCurve->GetTimeRange(JumpCurveStartTime, JumpCurveMaxTime);
-
-	float minHeight;
-	JumpCurve->GetValueRange(minHeight, JumpApexHeight);
-
-	if (!FindJumpApexTime(JumpApexTime))
-		UE_LOG(LogTemp, Error, TEXT("Invalid Jump Curve, no Apex found"));
-
-	UE_LOG(LogTemp, Warning, TEXT("Jump Curve Time (min,max): (%f, %f)"), JumpCurveStartTime, JumpCurveMaxTime);
-	UE_LOG(LogTemp, Warning, TEXT("Jump Apex Height %f at time %f"), JumpApexTime, JumpApexHeight);
+		UE_LOG(LogTemp, Warning, TEXT("Jump Curve Time (min,max): (%f, %f)"), JumpCurveMinTime, JumpCurveMaxTime);
+		UE_LOG(LogTemp, Warning, TEXT("Jump Apex Height %f at time %f"), JumpApexTime, JumpApexHeight);
+	}
 }
 
 void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELevelTick aTickType, FActorComponentTickFunction* aThisTickFunction)
@@ -55,11 +42,13 @@ void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELeve
 
 #if !UE_BUILD_SHIPPING
 	if (!IsJumpCurveEnabled())
+	{
 		return;
-#endif //!UE_BUILD_SHIPPING
+	}
+#endif
 	
-	ProcessJumping(aDeltaTime);
-	ProcessFalling(aDeltaTime);
+	ProcessJump(aDeltaTime);
+	ProcessJumpFall(aDeltaTime);
 }
 
 // TODO: there is a bug where you can just hold the space bar and jump, so we don't want to reset the jump if the jump button is literally down
@@ -81,22 +70,24 @@ bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
 		// Don't jump if we can't move up/down
 		if (!bConstrainToPlane || FMath::Abs(PlaneConstraintNormal.Z) != 1.f)
 		{
-			// Ignore gravity but keep UE air control
-			SetMovementMode(MOVE_Flying);
+			if (bIsValidJumpCurve && JumpCurve)
+			{
+				// Ignore gravity
+				SetMovementMode(MOVE_Flying);
 
-			bIsJumping = true;
-			bIsFalling = false;
-
-			JumpTime = JumpCurveStartTime;
-
-			PrevJumpTime = JumpTime;
-			PrevJumpCurveVal = JumpCurve->GetFloatValue(JumpTime);
+				// Starting jump
+				bIsJumping = true;
+				bIsJumpFalling = false;
+				JumpTime = JumpCurveMinTime;
+				PrevJumpTime = JumpTime;
+				PrevJumpCurveVal = JumpCurve->GetFloatValue(JumpTime);
 
 #if !UE_BUILD_SHIPPING
-			JumpHeightApexTest = 0.f;
+				JumpHeightApexTest = 0.f;
 #endif//!UE_BUILD_SHIPPING
 
-			return true;
+				return true;
+			}
 		}
 	};
 
@@ -105,18 +96,26 @@ bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
 
 bool UDeftCharacterMovementComponent::IsFalling() const
 {
-	// overriding default engine IsFalling() for animation reasons since we logically are in MOVE_Flying during any Jump or Fall
-	// however animations may need to know if we're falling
 #if !UE_BUILD_SHIPPING
 	if (!IsJumpCurveEnabled())
 		return Super::IsFalling();
 #endif
-	return Super::IsFalling() || bIsJumping || bIsFalling;
+
+	if (bIsValidJumpCurve && JumpCurve)
+		return Super::IsFalling() || bIsJumping || bIsJumpFalling;
+
+	return false;
 }
 
-void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
+void UDeftCharacterMovementComponent::ProcessJump(float aDeltaTime)
 {
-	if (!JumpCurve || !bIsJumping)
+	if (!bIsValidJumpCurve)
+		return;
+
+	if (!JumpCurve)
+		return;
+
+	if (!bIsJumping)
 		return;
 
 	JumpTime += aDeltaTime;
@@ -181,17 +180,18 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 #endif //!UE_BUILD_SHIPPING
 		}
 
-		// There is no floor checks while in MOVE_Flying so do it manually
+		// In jump but descending
 		if (yVelocity < 0.f)
 		{
+			// There is no floor checks while in MOVE_Flying so do it manually
 			const FVector capsulLoc = UpdatedComponent->GetComponentLocation();
 			FFindFloorResult floorResult;
-			if (FindFloorBySweep(floorResult, capsulLoc, destinationLocation))
+			if (CustomFindFloor(floorResult, capsulLoc, destinationLocation))
 			{
 				const float floorDistance = floorResult.GetDistanceToFloor();
 				if (FMath::Abs(jumpCurveValDelta) > floorDistance)
 				{
-					destinationLocation = capsulLoc - FVector(0.f, 0.f, jumpCurveValDelta);//TODO should be floorDistance I think but wait till after cleanup
+					destinationLocation = capsulLoc - FVector(0.f, 0.f, jumpCurveValDelta);
 				}
 
 				SetMovementMode(MOVE_Walking);
@@ -201,65 +201,72 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 			}
 		}
 
+		// TODO: can the MoveComponentTo below go in an else here? I feel like if we hit something and are now falling we don't want to move the component anywhere
 		// Move the actual capsule component in the world
 		FLatentActionInfo latentInfo;
 		latentInfo.CallbackTarget = this;
 		UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Type::Move, latentInfo);
 
-		// Notifying for animation support. Nothing in code is actively using this atm
-		if (isJumpApexReached && bNotifyApex)
-			NotifyJumpApex();
+		if (isJumpApexReached)
+		{
+			if (bNotifyApex)
+			{
+				NotifyJumpApex();
+			}
+		}
+
 	}
 	else
 	{
-		// reached the end of the jump curve, check for a floor otherwise we're falling
+		// reached the end of the jump curve
 
+#if !UE_BUILD_SHIPPING
+		UE_LOG(LogTemp, Warning, TEXT("Jump Apex Height Reached: %f"), JumpHeightApexTest);
+#endif //!UE_BUILD_SHIPPING
+
+		// check for a floor
 		const FVector capsulLoc = UpdatedComponent->GetComponentLocation();
 		FFindFloorResult floorResult;
-		FindFloor(capsulLoc, floorResult, false); // TODO: can we use FindFloorBySweep here?
+		FindFloor(capsulLoc, floorResult, false); // TODO: implement this myself using collision checks?
 		if (floorResult.IsWalkableFloor() && IsValidLandingSpot(capsulLoc, floorResult.HitResult))
 			SetMovementMode(MOVE_Walking);
 		else
 			SetCustomFallingMode();
 
 		bIsJumping = false;
-		CharacterOwner->ResetJumpState();//TODO: we might only want to do this in the above if when we find ground
-
-#if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Warning, TEXT("Jump Apex Height Reached: %f"), JumpHeightApexTest);
-#endif //!UE_BUILD_SHIPPING
+		CharacterOwner->ResetJumpState();
 	}
 }
 
-void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
+void UDeftCharacterMovementComponent::ProcessJumpFall(float aDeltaTime)
 {
-	if (!FallCurve)
+	if (!JumpFallCurve)
 		return;
 
-	if (bIsFalling)
+	if (bIsJumpFalling)
 	{
-		FallTime += aDeltaTime;
+		JumpFallTime += aDeltaTime;
 
-		const float fallCurveVal = FallCurve->GetFloatValue(FallTime);
-		UE_LOG(LogTemp, Warning, TEXT("fall curve val %f at time %f"), fallCurveVal, FallTime);
-		const float fallCurveValDelta = fallCurveVal - PrevFallCurveVal;
-		PrevFallCurveVal = fallCurveVal;
+		const float jumpfallCurveVal = JumpFallCurve->GetFloatValue(JumpFallTime);
+		UE_LOG(LogTemp, Warning, TEXT("fall curve val %f at time %f"), jumpfallCurveVal, JumpFallTime);
+		const float deltaJumpfallCurveVal = jumpfallCurveVal - PrevJumpFallCurveVal;
+		PrevJumpFallCurveVal = jumpfallCurveVal;
 
 		Velocity.Z = 0.f;
 
 		const FVector capsuleLocation = UpdatedComponent->GetComponentLocation();
-		FVector destinationLocation = capsuleLocation + FVector(0.f, 0.f, fallCurveValDelta);
+		FVector destinationLocation = capsuleLocation + FVector(0.f, 0.f, deltaJumpfallCurveVal);
 
 		FFindFloorResult floorResult;
-		if (FindFloorBySweep(floorResult, capsuleLocation, destinationLocation))
+		if (CustomFindFloor(floorResult, capsuleLocation, destinationLocation))
 		{
 			const float floorDistance = floorResult.GetDistanceToFloor(); //TODO: could do this manually by checking the distance from the actorLocation to the hit result
-			if (FMath::Abs(fallCurveValDelta) > floorDistance)
+			if (FMath::Abs(deltaJumpfallCurveVal) > floorDistance)
 			{
 				destinationLocation = capsuleLocation - FVector(0.f, 0.f, floorDistance);
 			}
 
-			bIsFalling = false;
+			bIsJumpFalling = false;
 
 			// Stopping the character and canceling all the movement carried from before the jump/fall
 			// note: Remove if you want to carry the momentum
@@ -279,10 +286,9 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 	else if (MovementMode == EMovementMode::MOVE_Falling)
 	{
 		// Dropping down from ledge while walking should use our custom fall logic
-		// TODO: need a fall curve for when not jumping I think otherwise it's a little too aggressive of a fall
 
-#if !UE_BUILD_SHIPPING
 		// note: not doing it during engine jump since engine jump uses falling
+#if !UE_BUILD_SHIPPING
 		if (!IsJumpCurveEnabled())
 			return;
 #endif
@@ -293,23 +299,23 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 
 void UDeftCharacterMovementComponent::SetCustomFallingMode()
 {
-	UE_LOG(LogTemp, Warning, TEXT("processing jump fall")); // maybe we need to set bIsJumping to false?
+	if (JumpFallCurve)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("processing jump fall")); // maybe we need to set bIsJumping to false?
 
-	bIsJumping = false;
-	bIsFalling = true;
-	FallTime = 0.f;
-	PrevFallCurveVal = 0.f;
-	Velocity.Z = 0.f;				// !important! so that velocity from jump doesn't get carried over to falling
+		bIsJumpFalling = true;
+		JumpFallTime = 0.f;
+		PrevJumpFallCurveVal = 0.f;
+		Velocity.Z = 0.f;				// !important! so that velocity from jump doesn't get carried over to falling
 
-	SetMovementMode(EMovementMode::MOVE_Flying);
+		SetMovementMode(EMovementMode::MOVE_Flying);
+	}
+	else
+		SetMovementMode(MOVE_Falling);
 }
 
-bool UDeftCharacterMovementComponent::FindFloorBySweep(FFindFloorResult& outFloorResult, const FVector aStartLoc, const FVector aEndLoc)
+bool UDeftCharacterMovementComponent::CustomFindFloor(FFindFloorResult& outFloorResult, const FVector aStartLoc, const FVector aEndLoc)
 {
-	// More reliable FindFloor() when moving at high speeds
-	// Solving paper bullet problem if player is falling very fast (i.e 100+ units in a frame) which means FindFloor would become inaccurate
-	// However you can pass a collision test into the FindFloor() function to have it included in the calculation
-
 	FCollisionQueryParams floorCheckCollisionParams;
 	floorCheckCollisionParams.AddIgnoredActor(CharacterOwner);
 	const UCapsuleComponent* capsulComponent = CharacterOwner->GetCapsuleComponent();
