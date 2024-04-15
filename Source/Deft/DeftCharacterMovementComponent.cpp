@@ -53,8 +53,6 @@ void UDeftCharacterMovementComponent::BeginPlay()
 
 void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELevelTick aTickType, FActorComponentTickFunction* aThisTickFunction)
 {
-	UE_LOG(LogTemp, Warning, TEXT("CanJump() %d"), CharacterOwner->CanJump());
-
 	Super::TickComponent(aDeltaTime, aTickType, aThisTickFunction);
 
 #if !UE_BUILD_SHIPPING
@@ -66,13 +64,12 @@ void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELeve
 	ProcessFalling(aDeltaTime);
 }
 
-// TODO: there is a bug where you can just hold the space bar and jump, so we don't want to reset the jump if the jump button is literally down
 bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
 {
 #if !UE_BUILD_SHIPPING
 	if (!IsJumpCurveEnabled())
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("DoJump::Jump curve disabled"));
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("Jump curve disabled"));
 		return Super::DoJump(bReplayingMoves);
 	}
 #endif//!UE_BUILD_SHIPPING
@@ -82,7 +79,6 @@ bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
 
 	if (CharacterOwner && CharacterOwner->CanJump()) // TODO: 'CanJump()' may have to be overridden if we wanna allow double jump stuff
 	{
-		UE_LOG(LogTemp, Warning, TEXT("DoJump because apparently CanJump is %d?"), CharacterOwner->CanJump());
 		// Don't jump if we can't move up/down
 		if (!bConstrainToPlane || FMath::Abs(PlaneConstraintNormal.Z) != 1.f)
 		{
@@ -197,7 +193,6 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 				if (FMath::Abs(jumpCurveValDelta) > floorDistance)
 					destinationLocation = capsulLoc - FVector(0.f, 0.f, floorDistance);
 
-				UE_LOG(LogTemp, Warning, TEXT("setting move to walk"));
 				SetMovementMode(MOVE_Walking);
 
 				bIsJumping = false;
@@ -225,15 +220,10 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 		FFindFloorResult floorResult;
 		FindFloor(capsulLoc, floorResult, false);
 		if (floorResult.IsWalkableFloor() && IsValidLandingSpot(capsulLoc, floorResult.HitResult))
-		{
 			SetMovementMode(MOVE_Walking);
-			UE_LOG(LogTemp, Warning, TEXT("ending w/ floor resetting jump state %d"), MovementMode);
-		}
 		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("ending w/ falling"));
 			SetCustomFallingMode();
-		}
+
 
 		CharacterOwner->StopJumping();
 

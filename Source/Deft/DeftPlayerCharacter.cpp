@@ -97,6 +97,8 @@ void ADeftPlayerCharacter::StopJumpProxy()
 	StopJumping();
 }
 
+// TODO: there is a bug where you can jump while colliding horizontally with a wall and effectively climb up the entire wall
+// I think it's probably because we're in the MOVE_Flying movement mode which will allow movement from input
 void ADeftPlayerCharacter::BeginJumpProxy()
 {
 	// Default UE jump logic allows sequential jumps if the user holds down the jump button
