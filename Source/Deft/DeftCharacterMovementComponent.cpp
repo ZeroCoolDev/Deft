@@ -8,6 +8,8 @@ TAutoConsoleVariable<bool> CVar_UseEngineJump(TEXT("deft.jump.UseJumpCurve"), tr
 
 UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, JumpCurve(nullptr)
+	, FallCurve(nullptr)
 	, JumpTime(0.f)
 	, PrevJumpTime(0.f)
 	, JumpCurveStartTime(0.f)
@@ -51,6 +53,8 @@ void UDeftCharacterMovementComponent::BeginPlay()
 
 void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELevelTick aTickType, FActorComponentTickFunction* aThisTickFunction)
 {
+	UE_LOG(LogTemp, Warning, TEXT("CanJump() %d"), CharacterOwner->CanJump());
+
 	Super::TickComponent(aDeltaTime, aTickType, aThisTickFunction);
 
 #if !UE_BUILD_SHIPPING
@@ -78,6 +82,7 @@ bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
 
 	if (CharacterOwner && CharacterOwner->CanJump()) // TODO: 'CanJump()' may have to be overridden if we wanna allow double jump stuff
 	{
+		UE_LOG(LogTemp, Warning, TEXT("DoJump because apparently CanJump is %d?"), CharacterOwner->CanJump());
 		// Don't jump if we can't move up/down
 		if (!bConstrainToPlane || FMath::Abs(PlaneConstraintNormal.Z) != 1.f)
 		{
@@ -98,8 +103,8 @@ bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
 
 			return true;
 		}
-	};
-
+	}
+	
 	return false;
 }
 
@@ -140,7 +145,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 
 		// when in MOVE_Flying the base character movement component will move the character based off velocity
 		// yet we want to move based off the curve position
-		// TODO: consider using custom and making specific movement modes for these custom jump & falling
+		// TODO(optional): consider using custom and making specific movement modes for these custom jump & falling
 		// which means we'll have to handle input when the character is in the air just as a heads up
 		Velocity.Z = 0.f;
 		float yVelocity = jumpCurveValDelta / aDeltaTime; //note: velocity = distance / time
@@ -165,7 +170,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 				SetCustomFallingMode();
 
 				bIsJumping = false;
-				CharacterOwner->ResetJumpState();
+				CharacterOwner->StopJumping();
 
 				// Reset vertical velocity to let gravity do the work
 				Velocity.Z = 0.f;
@@ -190,14 +195,13 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 			{
 				const float floorDistance = floorResult.GetDistanceToFloor();
 				if (FMath::Abs(jumpCurveValDelta) > floorDistance)
-				{
-					destinationLocation = capsulLoc - FVector(0.f, 0.f, jumpCurveValDelta);//TODO should be floorDistance I think but wait till after cleanup
-				}
+					destinationLocation = capsulLoc - FVector(0.f, 0.f, floorDistance);
 
+				UE_LOG(LogTemp, Warning, TEXT("setting move to walk"));
 				SetMovementMode(MOVE_Walking);
 
 				bIsJumping = false;
-				CharacterOwner->ResetJumpState();
+				CharacterOwner->StopJumping();
 			}
 		}
 
@@ -212,18 +216,26 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 	}
 	else
 	{
-		// reached the end of the jump curve, check for a floor otherwise we're falling
+		// Must invalidate before trying to ResetJumpState if we hit a floor because it requires the player not to be IsFalling()
+		// otherwise we're falling and bIsJumping should still be invalid
+		bIsJumping = false;
 
+		// reached the end of the jump curve, check for a floor otherwise we're falling
 		const FVector capsulLoc = UpdatedComponent->GetComponentLocation();
 		FFindFloorResult floorResult;
-		FindFloor(capsulLoc, floorResult, false); // TODO: can we use FindFloorBySweep here?
+		FindFloor(capsulLoc, floorResult, false);
 		if (floorResult.IsWalkableFloor() && IsValidLandingSpot(capsulLoc, floorResult.HitResult))
+		{
 			SetMovementMode(MOVE_Walking);
+			UE_LOG(LogTemp, Warning, TEXT("ending w/ floor resetting jump state %d"), MovementMode);
+		}
 		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("ending w/ falling"));
 			SetCustomFallingMode();
+		}
 
-		bIsJumping = false;
-		CharacterOwner->ResetJumpState();//TODO: we might only want to do this in the above if when we find ground
+		CharacterOwner->StopJumping();
 
 #if !UE_BUILD_SHIPPING
 		UE_LOG(LogTemp, Warning, TEXT("Jump Apex Height Reached: %f"), JumpHeightApexTest);
@@ -241,7 +253,6 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 		FallTime += aDeltaTime;
 
 		const float fallCurveVal = FallCurve->GetFloatValue(FallTime);
-		UE_LOG(LogTemp, Warning, TEXT("fall curve val %f at time %f"), fallCurveVal, FallTime);
 		const float fallCurveValDelta = fallCurveVal - PrevFallCurveVal;
 		PrevFallCurveVal = fallCurveVal;
 
@@ -253,11 +264,9 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 		FFindFloorResult floorResult;
 		if (FindFloorBySweep(floorResult, capsuleLocation, destinationLocation))
 		{
-			const float floorDistance = floorResult.GetDistanceToFloor(); //TODO: could do this manually by checking the distance from the actorLocation to the hit result
+			const float floorDistance = floorResult.GetDistanceToFloor();
 			if (FMath::Abs(fallCurveValDelta) > floorDistance)
-			{
 				destinationLocation = capsuleLocation - FVector(0.f, 0.f, floorDistance);
-			}
 
 			bIsFalling = false;
 
@@ -266,10 +275,6 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 			Velocity = FVector::ZeroVector;
 
 			SetMovementMode(MOVE_Walking);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("falling, floor NOT found"));
 		}
 
 		FLatentActionInfo latentInfo;
@@ -293,8 +298,6 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 
 void UDeftCharacterMovementComponent::SetCustomFallingMode()
 {
-	UE_LOG(LogTemp, Warning, TEXT("processing jump fall")); // maybe we need to set bIsJumping to false?
-
 	bIsJumping = false;
 	bIsFalling = true;
 	FallTime = 0.f;
@@ -413,7 +416,7 @@ bool UDeftCharacterMovementComponent::FindJumpApexTime(float& outApexTime)
 			{
 				// handles curves which have 0 slope for an extended time
 				// curve is parallel to time basis vector. Considering the flat part as apex
-				outApexTime = t1; // TODO: check I'm using t1 but he was using t2
+				outApexTime = t1;
 				return true;
 			}
 

@@ -10,13 +10,6 @@
 // Sets default values
 ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UDeftCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
-	, SpringArmComp(nullptr)
-	, CameraComp(nullptr)
-	, DefaultMappingContext(nullptr)
-	, JumpAction(nullptr)
-	, MoveAction(nullptr)
-	, LookAction(nullptr)
-	, bIsJumpReleased(true)
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -49,8 +42,6 @@ void ADeftPlayerCharacter::BeginPlay()
 			inputSubsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
-
-	bIsJumpReleased = true;
 }
 
 void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
@@ -91,27 +82,11 @@ void ADeftPlayerCharacter::Look(const FInputActionValue& aValue)
 	}
 }
 
-void ADeftPlayerCharacter::StopJumpProxy()
-{
-	bIsJumpReleased = true;
-	StopJumping();
-}
-
-void ADeftPlayerCharacter::BeginJumpProxy()
-{
-	// Default UE jump logic allows sequential jumps if the user holds down the jump button
-	// but I don't like that, so only allow a jump to be processed if they've released the previous
-	if (bIsJumpReleased)
-	{
-		bIsJumpReleased = false;
-		Jump();
-	}
-}
-
 // Called every frame
 void ADeftPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
 }
 
 // Called to bind functionality to input
@@ -122,8 +97,8 @@ void ADeftPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	if (UEnhancedInputComponent* inputComp = static_cast<UEnhancedInputComponent*>(PlayerInputComponent))
 	{
 		// Jump - TODO: perhaps write my own jump functions
-		inputComp->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ADeftPlayerCharacter::BeginJumpProxy);
-		inputComp->BindAction(JumpAction, ETriggerEvent::Completed, this, &ADeftPlayerCharacter::StopJumpProxy);
+		inputComp->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ADeftPlayerCharacter::Jump);
+		inputComp->BindAction(JumpAction, ETriggerEvent::Completed, this, &ADeftPlayerCharacter::StopJumping);
 
 		// Move
 		inputComp->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ADeftPlayerCharacter::Move);

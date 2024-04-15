@@ -26,8 +26,6 @@ protected:
 
 	void Move(const FInputActionValue& aValue);
 	void Look(const FInputActionValue& aValue);
-	void StopJumpProxy();
-	void BeginJumpProxy();
 
 	// Spring arm component to follow the camera camera behind the player
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Camera)
@@ -48,6 +46,4 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	class UInputAction* LookAction;
 
-private:
-	bool bIsJumpReleased;
 };
