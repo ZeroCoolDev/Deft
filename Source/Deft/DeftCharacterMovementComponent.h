@@ -20,10 +20,10 @@ protected:
 	bool DoJump(bool bReplayingMoves) override;
 	bool IsFalling() const override;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement | Jump", meta=(DisplayName="Jump Curve"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Jump Curve"))
 	UCurveFloat* JumpCurve;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement | Jump", meta=(DisplayName="Fall Curve"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Fall Curve"))
 	UCurveFloat* FallCurve;
 
 private:

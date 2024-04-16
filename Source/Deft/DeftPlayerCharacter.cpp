@@ -1,6 +1,7 @@
 #include "DeftPlayerCharacter.h"
 
 #include "Camera/CameraComponent.h"
+#include "CameraMovementComponent.h"
 #include "DeftCharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -35,6 +36,8 @@ ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectIniti
 
 	CameraComp->SetupAttachment(SpringArmComp, USpringArmComponent::SocketName);
 	CameraComp->bUsePawnControlRotation = true;
+
+	CameraMovementComponent = CreateDefaultSubobject<UCameraMovementComponent>(TEXT("CameraMovementComponent"));
 }
 
 // Called when the game starts or when spawned

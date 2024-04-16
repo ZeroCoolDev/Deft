@@ -48,6 +48,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	class UInputAction* LookAction;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
+	class UCameraMovementComponent* CameraMovementComponent;
+
 private:
 	bool bIsJumpReleased;
 };

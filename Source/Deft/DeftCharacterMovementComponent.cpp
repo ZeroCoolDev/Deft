@@ -62,6 +62,12 @@ void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELeve
 	
 	ProcessJumping(aDeltaTime);
 	ProcessFalling(aDeltaTime);
+
+	// apply camera bobble
+	if (MovementMode == MOVE_Walking)
+	{
+
+	}
 }
 
 bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
