@@ -139,7 +139,6 @@ void UCameraMovementComponent::ProcessCameraRoll(float aDeltaTime)
 		HighestRollTimeAchieved = 0.f;
 	}
 
-	// TODO: Unrolling in should be quicker than rolling out
 	// Rolling back into origin
 	if (bNeedsUnroll)
 	{

@@ -4,6 +4,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "DeftCharacterMovementComponent.generated.h"
 
+DECLARE_DELEGATE(FLandedFromAirDelegate);
+
 /**
  * 
  */
@@ -13,6 +15,8 @@ class DEFT_API UDeftCharacterMovementComponent : public UCharacterMovementCompon
 	GENERATED_BODY()
 public:
 	UDeftCharacterMovementComponent(const FObjectInitializer& ObjectInitializer);
+
+	FLandedFromAirDelegate OnLandedFromAir;
 
 protected:
 	void BeginPlay() override;

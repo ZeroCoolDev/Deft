@@ -17,6 +17,7 @@ ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectIniti
 	, JumpAction(nullptr)
 	, MoveAction(nullptr)
 	, LookAction(nullptr)
+	, InputMoveVector(FVector2D::ZeroVector)
 	, bIsJumpReleased(true)
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -59,7 +60,7 @@ void ADeftPlayerCharacter::BeginPlay()
 void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 {
 	// input is a vector2S
-	FVector2D input = aValue.Get<FVector2D>();
+	InputMoveVector = aValue.Get<FVector2D>();
 	//UE_LOG(LogTemp, Warning, TEXT("Move Fwd/Back: %.2f, Right/Left: %.2f"), input.Y, input.X);
 
 	// TODO: add custom player controller
@@ -74,10 +75,9 @@ void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 		const FVector forwardDir = FRotationMatrix(yawRotation).GetUnitAxis(EAxis::X);
 		const FVector rightDir = FRotationMatrix(yawRotation).GetUnitAxis(EAxis::Y);
 
-		AddMovementInput(forwardDir, input.Y);
-		AddMovementInput(rightDir, input.X);
+		AddMovementInput(forwardDir, InputMoveVector.Y);
+		AddMovementInput(rightDir, InputMoveVector.X);
 
-		//UE_LOG(LogTemp, Warning, TEXT("speed: %.2f"), GetCharacterMovement()->Velocity.Size());
 	}
 }
 
@@ -132,6 +132,7 @@ void ADeftPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 		// Move
 		inputComp->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ADeftPlayerCharacter::Move);
+		inputComp->BindAction(MoveAction, ETriggerEvent::Completed, this, &ADeftPlayerCharacter::Move);
 
 		// Look
 		inputComp->BindAction(LookAction, ETriggerEvent::Triggered, this, &ADeftPlayerCharacter::Look);

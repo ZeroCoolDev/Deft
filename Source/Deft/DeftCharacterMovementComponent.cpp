@@ -189,6 +189,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 		}
 
 		// There is no floor checks while in MOVE_Flying so do it manually
+		bool landedOnFloor = false;
 		if (yVelocity < 0.f)
 		{
 			const FVector capsulLoc = UpdatedComponent->GetComponentLocation();
@@ -203,6 +204,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 
 				bIsJumping = false;
 				CharacterOwner->StopJumping();
+				landedOnFloor = true;
 			}
 		}
 
@@ -214,6 +216,9 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 		// Notifying for animation support. Nothing in code is actively using this atm
 		if (isJumpApexReached && bNotifyApex)
 			NotifyJumpApex();
+
+		if (landedOnFloor)
+			OnLandedFromAir.ExecuteIfBound();
 	}
 	else
 	{
@@ -226,7 +231,10 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 		FFindFloorResult floorResult;
 		FindFloor(capsulLoc, floorResult, false);
 		if (floorResult.IsWalkableFloor() && IsValidLandingSpot(capsulLoc, floorResult.HitResult))
+		{
 			SetMovementMode(MOVE_Walking);
+			OnLandedFromAir.ExecuteIfBound();
+		}
 		else
 			SetCustomFallingMode();
 
@@ -257,6 +265,7 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 		const FVector capsuleLocation = UpdatedComponent->GetComponentLocation();
 		FVector destinationLocation = capsuleLocation + FVector(0.f, 0.f, fallCurveValDelta);
 
+		bool landedOnFloor = false;
 		FFindFloorResult floorResult;
 		if (FindFloorBySweep(floorResult, capsuleLocation, destinationLocation))
 		{
@@ -271,11 +280,15 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 			Velocity = FVector::ZeroVector;
 
 			SetMovementMode(MOVE_Walking);
+			landedOnFloor = true;
 		}
 
 		FLatentActionInfo latentInfo;
 		latentInfo.CallbackTarget = this;
 		UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
+
+		if (landedOnFloor)
+			OnLandedFromAir.ExecuteIfBound();
 	}
 	else if (MovementMode == EMovementMode::MOVE_Falling)
 	{
