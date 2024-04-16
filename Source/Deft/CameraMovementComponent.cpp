@@ -23,6 +23,7 @@ UCameraMovementComponent::UCameraMovementComponent()
 	, RollLerpEnd(0.f)
 	, HighestRollTimeAchieved(0.f)
 	, UnrollLerpTime(0.f)
+	, UnrollLerpTimeMax(0.f)
 	, bUnrollFromLeft(false)
 	, bNeedsUnroll(false)
 	, bIsWalkBobbleActive(false)
@@ -63,6 +64,7 @@ void UCameraMovementComponent::BeginPlay()
 	RollLerpTimeMax = 0.3f;
 	RollLerpStart = 0.f;
 	RollLerpEnd = 3.f;
+	UnrollLerpTimeMax = 0.1f;
 
 	// Land Dip setup
 	UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftPlayerCharacter->GetMovementComponent());
@@ -130,11 +132,12 @@ void UCameraMovementComponent::ProcessCameraRoll(float aDeltaTime)
 	// Will only trigger for the frame that input stopped
 	if (stoppedLeaningRight || stoppedLeaningLeft)
 	{
+		// Time to unroll is faster than rolling so need to map time from roll to unroll range
+		const float unrollLerpInRollRange = RollLerpTimeMax - HighestRollTimeAchieved;
+		UnrollLerpTime = (unrollLerpInRollRange / RollLerpTimeMax) * UnrollLerpTimeMax;
+
 		bUnrollFromLeft = wasLeaningLeft;
 		RollLerpTime = 0.f; // reset roll lerp since we're unrolling so that the time isn't carried over to an different lean
-
-		// Time to unroll should be conversely proportional to how much time was rolled
-		UnrollLerpTime = RollLerpTimeMax - HighestRollTimeAchieved;
 		bNeedsUnroll = true;
 		HighestRollTimeAchieved = 0.f;
 	}
@@ -144,14 +147,14 @@ void UCameraMovementComponent::ProcessCameraRoll(float aDeltaTime)
 	if (bNeedsUnroll)
 	{
 		UnrollLerpTime += aDeltaTime;
-		if (UnrollLerpTime > RollLerpTimeMax)
+		if (UnrollLerpTime > UnrollLerpTimeMax)
 		{
-			UnrollLerpTime = RollLerpTimeMax;
+			UnrollLerpTime = UnrollLerpTimeMax;
 			bNeedsUnroll = false; // this is the last unroll frame we need
 		}
 
 		// lerp!
-		const float percent = UnrollLerpTime / RollLerpTimeMax;
+		const float percent = UnrollLerpTime / UnrollLerpTimeMax;
 		float unroll = FMath::Lerp(RollLerpEnd, RollLerpStart, percent);
 		if (bUnrollFromLeft)
 			unroll *= -1.f;

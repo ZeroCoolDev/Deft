@@ -51,7 +51,6 @@ private:
 	float HighestRollTimeAchieved;
 
 	float UnrollLerpTime;
-	float UnrollLerpTimeMax;
 	bool bUnrollFromLeft;
 	bool bNeedsUnroll;
 
