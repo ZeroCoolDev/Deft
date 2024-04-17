@@ -18,35 +18,26 @@ public:
 
 	FLandedFromAirDelegate OnLandedFromAir;
 
-	void DoSlide();
-
 protected:
 	void BeginPlay() override;
 	void TickComponent(float aDeltaTime, enum ELevelTick aTickType, FActorComponentTickFunction* aThisTickFunction) override;
 	bool DoJump(bool bReplayingMoves) override;
 	bool IsFalling() const override;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Jump Curve"))
 	UCurveFloat* JumpCurve;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Fall Curve"))
 	UCurveFloat* FallCurve;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Slide Curve"))
-	UCurveFloat* SlideCurve;
-
 private:
 	void ProcessJumping(float aDeltaTime);
+	
 	void ProcessFalling(float aDeltaTime);
-	void ProcessSliding(float aDeltaTime);
-
-	void StopSlide();
-
+	
 	void SetCustomFallingMode();
-	bool FindFloorBySweep(FFindFloorResult& outFloorResult, const FVector aStartLoc, const FVector aEndLWoc);
+	bool FindFloorBySweep(FFindFloorResult& outFloorResult, const FVector aStartLoc, const FVector aEndLoc);
 	bool FindJumpApexTime(float& outApexTime);
-
-	FVector SlideDirection;
 
 	// Jumping
 	float JumpTime;
@@ -61,15 +52,9 @@ private:
 	float FallTime;
 	float PrevFallCurveVal;
 
-	// Slide
-	float SlideTime;
-	float SlideCurveStartTime;
-	float SlideCurveMaxTime;
-
 	bool bIsJumping;
 	bool bIsValidJumpCurve;
 	bool bIsFalling;
-	bool bIsSliding;
 
 private:
 #if !UE_BUILD_SHIPPING

@@ -77,7 +77,7 @@ void UCameraMovementComponent::BeginPlay()
 		if (!deftCharacterMovementComponent)
 			UE_LOG(LogTemp, Error, TEXT("Failed to get DeftCharacterMovementComponent"));
 
-		deftCharacterMovementComponent->OnLandedFromAir.AddUObject(this, &UCameraMovementComponent::BeginCameraLandDip);
+		deftCharacterMovementComponent->OnLandedFromAir.AddUObject(this, &UCameraMovementComponent::DoCameraDip);
 
 		float unusedMin;
 		LandedFromAirDipCuve->GetTimeRange(unusedMin, DipLerpTimeMax);
@@ -236,7 +236,7 @@ void UCameraMovementComponent::ProcessCameraDip(float aDeltaTime)
 	}
 }
 
-void UCameraMovementComponent::BeginCameraLandDip()
+void UCameraMovementComponent::DoCameraDip()
 {
 	bNeedsDip = true;
 	DipLerpTime = 0.f;

@@ -15,9 +15,6 @@ UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectIn
 	, JumpCurveStartTime(0.f)
 	, JumpCurveMaxTime(0.f)
 	, PrevJumpCurveVal(0.f)
-	, SlideTime(0.f)
-	, SlideCurveStartTime(0.f)
-	, SlideCurveMaxTime(0.f)
 	, JumpApexTime(0.f)
 	, JumpApexHeight(0.f)
 	, FallTime(0.f)
@@ -25,8 +22,8 @@ UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectIn
 	, bIsJumping(false)
 	, bIsValidJumpCurve(false)
 	, bIsFalling(false)
-	, bIsSliding(false)
 {
+
 }
 
 void UDeftCharacterMovementComponent::BeginPlay()
@@ -36,42 +33,27 @@ void UDeftCharacterMovementComponent::BeginPlay()
 	bIsFalling = false;
 	bIsJumping = false;
 
-	if (JumpCurve)
-	{
-		JumpCurve->GetTimeRange(JumpCurveStartTime, JumpCurveMaxTime);
-
-		float minHeight;
-		JumpCurve->GetValueRange(minHeight, JumpApexHeight);
-
-		if (!FindJumpApexTime(JumpApexTime))
-			UE_LOG(LogTemp, Error, TEXT("Invalid Jump Curve, no Apex found"));
-
-		UE_LOG(LogTemp, Warning, TEXT("Jump Curve Time (min,max): (%f, %f)"), JumpCurveStartTime, JumpCurveMaxTime);
-		UE_LOG(LogTemp, Warning, TEXT("Jump Apex Height %f at time %f"), JumpApexTime, JumpApexHeight);
-	}
-	else
+	if (!JumpCurve)
 		UE_LOG(LogTemp, Error, TEXT("Missing Jump Curve"));
-
 
 	if (!FallCurve)
 		UE_LOG(LogTemp, Error, TEXT("Missing Fall Curve"));
 
-	if (SlideCurve)
-	{
-		SlideCurve->GetTimeRange(SlideCurveStartTime, SlideCurveMaxTime);
-		UE_LOG(LogTemp, Warning, TEXT("Slide Curve Time (min,max): (%f, %f)"), SlideCurveStartTime, SlideCurveMaxTime);
-	}
-	else 
-		UE_LOG(LogTemp, Error, TEXT("Missing Slide Curve"));
+	JumpCurve->GetTimeRange(JumpCurveStartTime, JumpCurveMaxTime);
+
+	float minHeight;
+	JumpCurve->GetValueRange(minHeight, JumpApexHeight);
+
+	if (!FindJumpApexTime(JumpApexTime))
+		UE_LOG(LogTemp, Error, TEXT("Invalid Jump Curve, no Apex found"));
+
+	UE_LOG(LogTemp, Warning, TEXT("Jump Curve Time (min,max): (%f, %f)"), JumpCurveStartTime, JumpCurveMaxTime);
+	UE_LOG(LogTemp, Warning, TEXT("Jump Apex Height %f at time %f"), JumpApexTime, JumpApexHeight);
 }
 
 void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELevelTick aTickType, FActorComponentTickFunction* aThisTickFunction)
 {
 	Super::TickComponent(aDeltaTime, aTickType, aThisTickFunction);
-
-	//TODO: remove me
-	const float velocityLength = CharacterOwner->GetVelocity().Length();
-	//UE_LOG(LogTemp, Log, TEXT("vel length %.2f"), velocityLength);
 
 #if !UE_BUILD_SHIPPING
 	if (!IsJumpCurveEnabled())
@@ -80,7 +62,12 @@ void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELeve
 	
 	ProcessJumping(aDeltaTime);
 	ProcessFalling(aDeltaTime);
-	ProcessSliding(aDeltaTime);
+
+	// apply camera bobble
+	if (MovementMode == MOVE_Walking)
+	{
+
+	}
 }
 
 bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
@@ -316,78 +303,6 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 
 		SetCustomFallingMode();
 	}
-}
-
-void UDeftCharacterMovementComponent::ProcessSliding(float aDeltaTime)
-{
-	if (!bIsSliding)
-		return;
-
-	if (!SlideCurve)
-		return;
-
-	if (bIsJumping || bIsFalling)
-	{
-		StopSlide();
-		return;
-	}
-
-	// move component based off curve (increasing speed essentially)
-	SlideTime += aDeltaTime;
-	if (SlideTime > SlideCurveMaxTime)
-	{
-		StopSlide();
-		return;
-	}
-
-	const float slideCurveVal = SlideCurve->GetFloatValue(SlideTime);
-	
-	const FVector capsuleLocation = UpdatedComponent->GetComponentLocation();
-	const FVector destinationLocation = capsuleLocation + (SlideDirection * slideCurveVal); // propel in the forwards direction
-	UE_LOG(LogTemp, Warning, TEXT("Sliding for: %.5fs"), SlideTime);
-	//UE_LOG(LogTemp, Warning, TEXT("sliding: prevLoc %s, destLoc %s"), *capsuleLocation.ToString(), *destinationLocation.ToString());
-	FLatentActionInfo latentInfo;
-	latentInfo.CallbackTarget = this;
-	UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
-}
-
-void UDeftCharacterMovementComponent::DoSlide() //TODO: we want the slide speed to be constant, but the length of time spent in the slide speed to be dependent on initial velocity
-{
-	SetMovementMode(MOVE_Flying);
-
-	UE_LOG(LogTemp, Log, TEXT("DoSlide!"));
-	bIsSliding = true;
-
-	// Move following the players last velocity
-	SlideDirection = CharacterOwner->GetVelocity().GetSafeNormal();
-
-	// Max speed = max slide distance
-	const float speedPercent = CharacterOwner->GetVelocity().Length() / GetMaxSpeed();
-
-	const float minSlideTimePercent = 0.3f;
-	SlideTime = SlideCurveMaxTime - (SlideCurveMaxTime * speedPercent); // speedPercent 0 should be starting at max. speedPercent of 1 should be starting at 0
-	SlideTime = FMath::Min(minSlideTimePercent, SlideTime);
-
-	UE_LOG(LogTemp, Warning, TEXT("SlideTime starting at %f"), SlideTime);
-
-	// shrink capsul
-	// lower camera and angle left
-	// lock WASD movement
-	// TODO: add on screen trail effects
-}
-
-void UDeftCharacterMovementComponent::StopSlide()
-{
-	SetMovementMode(MOVE_Walking);
-
-	UE_LOG(LogTemp, Log, TEXT("StopSlide!"));
-	bIsSliding = false;
-	SlideTime = 0.f;
-	PrevSlideCurveVal = SlideTime;
-	// restore capsul size
-	// restore camera and angle
-	// un-lock WASD movement
-	// TODO: remove on screen trail effects
 }
 
 void UDeftCharacterMovementComponent::SetCustomFallingMode()

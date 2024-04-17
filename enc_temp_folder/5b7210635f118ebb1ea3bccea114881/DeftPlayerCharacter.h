@@ -28,7 +28,6 @@ protected:
 
 	void Move(const FInputActionValue& aValue);
 	void Look(const FInputActionValue& aValue);
-	void Slide();
 
 	void OnLandedBeginJumpDelay();
 	void UpdateJumpDelay(float aDeltaTim);
@@ -54,9 +53,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	class UInputAction* LookAction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
-	class UInputAction* SlideAction;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	class UCameraMovementComponent* CameraMovementComponent;

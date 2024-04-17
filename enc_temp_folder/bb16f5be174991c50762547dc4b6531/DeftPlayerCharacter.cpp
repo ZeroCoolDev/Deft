@@ -17,7 +17,6 @@ ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectIniti
 	, JumpAction(nullptr)
 	, MoveAction(nullptr)
 	, LookAction(nullptr)
-	, SlideAction(nullptr)
 	, InputMoveVector(FVector2D::ZeroVector)
 	, JumpDelayMaxTime(0.f)
 	, JumpDelayTime(0.f)
@@ -103,12 +102,6 @@ void ADeftPlayerCharacter::Look(const FInputActionValue& aValue)
 	}
 }
 
-void ADeftPlayerCharacter::Slide()
-{
-	if (UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(GetCharacterMovement()))
-		deftCharacterMovementComponent->DoSlide();
-}
-
 void ADeftPlayerCharacter::OnLandedBeginJumpDelay()
 {
 	bIsDelayingJump = true;
@@ -128,13 +121,11 @@ void ADeftPlayerCharacter::UpdateJumpDelay(float aDeltaTime)
 
 bool ADeftPlayerCharacter::CanBeginJump()
 {
-	// note: Removing jump delay for now, if it's desired uncomment this 
-	return bIsJumpReleased;//&& JumpDelayTime == JumpDelayMaxTime;
+	return bIsJumpReleased && JumpDelayTime == JumpDelayMaxTime;
 }
 
 // TODO: there is a bug where you can jump while colliding horizontally with a wall and effectively climb up the entire wall
 // I think it's probably because we're in the MOVE_Flying movement mode which will allow movement from input
-// To fix this I think we may need to manually detect collision in a full 360 around the capsul then change the movement mode to Falling (our falling)
 void ADeftPlayerCharacter::BeginJumpProxy()
 {
 	// Default UE jump logic allows sequential jumps if the user holds down the jump button
@@ -180,9 +171,6 @@ void ADeftPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 		// Look
 		inputComp->BindAction(LookAction, ETriggerEvent::Triggered, this, &ADeftPlayerCharacter::Look);
-
-		// Slide
-		inputComp->BindAction(SlideAction, ETriggerEvent::Started, this, &ADeftPlayerCharacter::Slide);
 	}
 }
 

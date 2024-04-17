@@ -71,14 +71,14 @@ void UCameraMovementComponent::BeginPlay()
 	UnrollLerpTimeMax = 0.1f;
 
 	// Land Dip setup
-	UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftPlayerCharacter->GetMovementComponent());
-	if (!deftCharacterMovementComponent)
-		UE_LOG(LogTemp, Error, TEXT("Failed to get DeftCharacterMovementComponent"));
-
-	deftCharacterMovementComponent->OnLandedFromAir.AddUObject(this, &UCameraMovementComponent::BeginCameraLandDip);
-
 	if (LandedFromAirDipCuve)
 	{
+		UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftPlayerCharacter->GetMovementComponent());
+		if (!deftCharacterMovementComponent)
+			UE_LOG(LogTemp, Error, TEXT("Failed to get DeftCharacterMovementComponent"));
+
+		deftCharacterMovementComponent->OnLandedFromAir.AddUObject(this, &UCameraMovementComponent::BeginCameraLandDip);
+
 		float unusedMin;
 		LandedFromAirDipCuve->GetTimeRange(unusedMin, DipLerpTimeMax);
 	}
@@ -238,7 +238,6 @@ void UCameraMovementComponent::ProcessCameraDip(float aDeltaTime)
 
 void UCameraMovementComponent::BeginCameraLandDip()
 {
-	UE_LOG(LogTemp, Log, TEXT("Landed!"));
 	bNeedsDip = true;
 	DipLerpTime = 0.f;
 }

@@ -34,8 +34,7 @@ private:
 	void ProcessCameraBobble(float aDeltaTime);
 	void ProcessCameraRoll(float aDeltaTime);
 	void ProcessCameraDip(float aDeltaTime);
-
-	void DoCameraDip();
+	void BeginCameraLandDip();
 
 	TWeakObjectPtr<class ADeftPlayerCharacter> DeftPlayerCharacter;
 	TWeakObjectPtr<class USceneComponent> CameraTarget;
