@@ -23,7 +23,6 @@ ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectIniti
 	, JumpDelayTime(0.f)
 	, bIsDelayingJump(false)
 	, bIsJumpReleased(true)
-	, bIsInputMoveLocked(false)
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -69,10 +68,10 @@ void ADeftPlayerCharacter::BeginPlay()
 
 void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 {
-	if (bIsInputMoveLocked)
-		return;
-
+	// input is a vector2S
 	InputMoveVector = aValue.Get<FVector2D>();
+	//UE_LOG(LogTemp, Warning, TEXT("Move Fwd/Back: %.2f, Right/Left: %.2f"), input.Y, input.X);
+
 	// TODO: add custom player controller
 	if (Controller)
 	{
@@ -87,6 +86,7 @@ void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 
 		AddMovementInput(forwardDir, InputMoveVector.Y);
 		AddMovementInput(rightDir, InputMoveVector.X);
+
 	}
 }
 
@@ -105,15 +105,8 @@ void ADeftPlayerCharacter::Look(const FInputActionValue& aValue)
 
 void ADeftPlayerCharacter::Slide()
 {
-	bIsInputMoveLocked = true;
-
 	if (UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(GetCharacterMovement()))
 		deftCharacterMovementComponent->DoSlide();
-}
-
-void ADeftPlayerCharacter::StopSlide()
-{
-	bIsInputMoveLocked = false;
 }
 
 void ADeftPlayerCharacter::OnLandedBeginJumpDelay()

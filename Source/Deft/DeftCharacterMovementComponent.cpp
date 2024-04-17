@@ -1,8 +1,9 @@
 #include "DeftCharacterMovementComponent.h"
 
 #include "Components/CapsuleComponent.h"
+#include "DeftPlayerCharacter.h"
 #include "GameFramework/Character.h"
-#include "Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 TAutoConsoleVariable<bool> CVar_UseEngineJump(TEXT("deft.jump.UseJumpCurve"), true, TEXT("true=use custom jump curve logic, false=use engine jump logic"));
 
@@ -394,9 +395,13 @@ void UDeftCharacterMovementComponent::DoSlide()
 
 void UDeftCharacterMovementComponent::StopSlide()
 {
+	UE_LOG(LogTemp, Log, TEXT("StopSlide!"));
+
+	if (ADeftPlayerCharacter* deftPlayerCharacter = Cast<ADeftPlayerCharacter>(CharacterOwner))
+		deftPlayerCharacter->StopSlide();
+
 	SetMovementMode(MOVE_Walking);
 
-	UE_LOG(LogTemp, Log, TEXT("StopSlide!"));
 	bIsSliding = false;
 	SlideTime = 0.f;
 	// restore capsul size
