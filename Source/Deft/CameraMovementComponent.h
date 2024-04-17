@@ -27,16 +27,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bobble", meta=(DisplayName="Walk Bobble Curve"))
 	UCurveFloat* WalkBobbleCurve;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jump", meta=(DisplayName="Jump Land Dip Curve"))
-	UCurveFloat* JumpLandDipCuve;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jump", meta=(DisplayName="Landed From Air Dip Curve"))
+	UCurveFloat* LandedFromAirDipCuve;
 
 private:
 	void ProcessCameraBobble(float aDeltaTime);
 	void ProcessCameraRoll(float aDeltaTime);
-	void PerformCameraLandDip();
+	void ProcessCameraDip(float aDeltaTime);
+	void BeginCameraLandDip();
 
 	TWeakObjectPtr<class ADeftPlayerCharacter> DeftPlayerCharacter;
-	TWeakObjectPtr<class USceneComponent> BobbleTarget;
+	TWeakObjectPtr<class USceneComponent> CameraTarget;
 
 	FVector2D PreviousInputVector;
 
@@ -52,8 +53,15 @@ private:
 
 	float UnrollLerpTime;
 	float UnrollLerpTimeMax;
-	bool bUnrollFromLeft;
-	bool bNeedsUnroll;
 
+	float DipLerpTimeMax;
+	float DipLerpTime;
+	float PrevDipVal;
+
+	bool bNeedsUnroll;
+	bool bUnrollFromLeft;
+
+	bool bNeedsDip;
+	
 	bool bIsWalkBobbleActive;
 };

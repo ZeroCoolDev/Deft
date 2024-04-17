@@ -12,7 +12,7 @@
 UCameraMovementComponent::UCameraMovementComponent()
 	: WalkBobbleCurve(nullptr)
 	, DeftPlayerCharacter(nullptr)
-	, BobbleTarget(nullptr)
+	, CameraTarget(nullptr)
 	, PreviousInputVector(FVector2D::ZeroVector)
 	, WalkBobbleTime(0.f)
 	, WalkBobbleMaxTime(0.f)
@@ -24,8 +24,12 @@ UCameraMovementComponent::UCameraMovementComponent()
 	, HighestRollTimeAchieved(0.f)
 	, UnrollLerpTime(0.f)
 	, UnrollLerpTimeMax(0.f)
-	, bUnrollFromLeft(false)
+	, DipLerpTimeMax(0.f)
+	, DipLerpTime(0.f)
+	, PrevDipVal(0.f)
 	, bNeedsUnroll(false)
+	, bUnrollFromLeft(false)
+	, bNeedsDip(false)
 	, bIsWalkBobbleActive(false)
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
@@ -56,9 +60,9 @@ void UCameraMovementComponent::BeginPlay()
 	else
 		UE_LOG(LogTemp, Error, TEXT("Walk Bobble curve is invalid"));
 
-	BobbleTarget = DeftPlayerCharacter->FindComponentByClass<USpringArmComponent>();
-	if (!BobbleTarget.IsValid())
-		UE_LOG(LogTemp, Error, TEXT("Failed to set BobbleTarget!"));
+	CameraTarget = DeftPlayerCharacter->FindComponentByClass<USpringArmComponent>();
+	if (!CameraTarget.IsValid())
+		UE_LOG(LogTemp, Error, TEXT("Failed to set CameraTarget!"));
 
 	// Roll Setup
 	RollLerpTimeMax = 0.3f;
@@ -67,11 +71,20 @@ void UCameraMovementComponent::BeginPlay()
 	UnrollLerpTimeMax = 0.1f;
 
 	// Land Dip setup
-	UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftPlayerCharacter->GetMovementComponent());
-	if (!deftCharacterMovementComponent)
-		UE_LOG(LogTemp, Error, TEXT("Failed to get DeftCharacterMovementComponent"));
+	if (LandedFromAirDipCuve)
+	{
+		UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftPlayerCharacter->GetMovementComponent());
+		if (!deftCharacterMovementComponent)
+			UE_LOG(LogTemp, Error, TEXT("Failed to get DeftCharacterMovementComponent"));
 
-	deftCharacterMovementComponent->OnLandedFromAir.BindUObject(this, &UCameraMovementComponent::PerformCameraLandDip);
+		deftCharacterMovementComponent->OnLandedFromAir.AddUObject(this, &UCameraMovementComponent::BeginCameraLandDip);
+
+		float unusedMin;
+		LandedFromAirDipCuve->GetTimeRange(unusedMin, DipLerpTimeMax);
+	}
+	else
+		UE_LOG(LogTemp, Error, TEXT("Landed From Air Dip curve is invalid"));
+
 }
 
 void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -80,17 +93,24 @@ void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 
 	ProcessCameraBobble(DeltaTime);
 	ProcessCameraRoll(DeltaTime);
+	ProcessCameraDip(DeltaTime);
 }
 
 void UCameraMovementComponent::ProcessCameraBobble(float aDeltaTime)
 {
+	if (bNeedsDip) // don't play dip and bobble at the same time
+		return;
+
+	if (!WalkBobbleCurve)
+		return;
+
 	if (!DeftPlayerCharacter->GetCharacterMovement()->IsMovingOnGround())
 		return;
 
 	if (DeftPlayerCharacter->GetVelocity() == FVector::ZeroVector)
 		return;
 
-	if (!BobbleTarget.IsValid())
+	if (!CameraTarget.IsValid())
 		return;
 
 	if (WalkBobbleTime >= WalkBobbleMaxTime)
@@ -104,10 +124,10 @@ void UCameraMovementComponent::ProcessCameraBobble(float aDeltaTime)
 
 		PrevWalkBobbleVal = bobbleCurveVal;
 
-		const FVector cameraLocation = BobbleTarget->GetRelativeLocation();
+		const FVector cameraLocation = CameraTarget->GetRelativeLocation();
 		const FVector newLocation = cameraLocation - FVector(0.f, 0.f, bobbleCurveValDelta);
 
-		BobbleTarget->SetRelativeLocation(newLocation, false, nullptr, ETeleportType::TeleportPhysics);
+		CameraTarget->SetRelativeLocation(newLocation, false, nullptr, ETeleportType::TeleportPhysics);
 	}
 
 }
@@ -187,8 +207,38 @@ void UCameraMovementComponent::ProcessCameraRoll(float aDeltaTime)
 	PreviousInputVector = inputVector;
 }
 
-void UCameraMovementComponent::PerformCameraLandDip()
+void UCameraMovementComponent::ProcessCameraDip(float aDeltaTime)
 {
-	UE_LOG(LogTemp, Log, TEXT("Landed!"));
+	if (!bNeedsDip)
+		return;
+
+	if (!CameraTarget.IsValid())
+		return;
+
+	if (DipLerpTime >= DipLerpTimeMax)
+	{
+		bNeedsDip = false;
+		return;
+	}
+
+	DipLerpTime += aDeltaTime;
+	if (DipLerpTime <= DipLerpTimeMax)
+	{
+		const float dipCurveVal = LandedFromAirDipCuve->GetFloatValue(DipLerpTime);
+		const float dipCurveValDelta = dipCurveVal - PrevDipVal;
+
+		PrevDipVal = dipCurveVal;
+
+		const FVector cameraLocation = CameraTarget->GetRelativeLocation();
+		const FVector newLocation = cameraLocation - FVector(0.f, 0.f, dipCurveValDelta);
+
+		CameraTarget->SetRelativeLocation(newLocation, false, nullptr, ETeleportType::TeleportPhysics);
+	}
+}
+
+void UCameraMovementComponent::BeginCameraLandDip()
+{
+	bNeedsDip = true;
+	DipLerpTime = 0.f;
 }
 

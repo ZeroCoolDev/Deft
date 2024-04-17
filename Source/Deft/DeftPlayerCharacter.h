@@ -28,8 +28,12 @@ protected:
 
 	void Move(const FInputActionValue& aValue);
 	void Look(const FInputActionValue& aValue);
-	void StopJumpProxy();
+
+	void OnLandedBeginJumpDelay();
+	void UpdateJumpDelay(float aDeltaTim);
+	bool CanBeginJump();
 	void BeginJumpProxy();
+	void StopJumpProxy();
 
 	// Spring arm component to follow the camera camera behind the player
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Camera)
@@ -55,6 +59,10 @@ protected:
 
 private:
 	FVector2D InputMoveVector;
+	
+	float JumpDelayMaxTime;
+	float JumpDelayTime;
+	bool bIsDelayingJump;
 
 	bool bIsJumpReleased;
 };

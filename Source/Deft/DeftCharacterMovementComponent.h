@@ -4,7 +4,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "DeftCharacterMovementComponent.generated.h"
 
-DECLARE_DELEGATE(FLandedFromAirDelegate);
+DECLARE_MULTICAST_DELEGATE(FLandedFromAirDelegate);
 
 /**
  * 

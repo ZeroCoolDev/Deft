@@ -218,7 +218,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 			NotifyJumpApex();
 
 		if (landedOnFloor)
-			OnLandedFromAir.ExecuteIfBound();
+			OnLandedFromAir.Broadcast();
 	}
 	else
 	{
@@ -233,7 +233,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 		if (floorResult.IsWalkableFloor() && IsValidLandingSpot(capsulLoc, floorResult.HitResult))
 		{
 			SetMovementMode(MOVE_Walking);
-			OnLandedFromAir.ExecuteIfBound();
+			OnLandedFromAir.Broadcast();
 		}
 		else
 			SetCustomFallingMode();
@@ -288,7 +288,7 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 		UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
 
 		if (landedOnFloor)
-			OnLandedFromAir.ExecuteIfBound();
+			OnLandedFromAir.Broadcast();
 	}
 	else if (MovementMode == EMovementMode::MOVE_Falling)
 	{

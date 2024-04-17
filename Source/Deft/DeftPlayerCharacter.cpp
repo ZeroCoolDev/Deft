@@ -18,6 +18,9 @@ ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectIniti
 	, MoveAction(nullptr)
 	, LookAction(nullptr)
 	, InputMoveVector(FVector2D::ZeroVector)
+	, JumpDelayMaxTime(0.f)
+	, JumpDelayTime(0.f)
+	, bIsDelayingJump(false)
 	, bIsJumpReleased(true)
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -54,7 +57,12 @@ void ADeftPlayerCharacter::BeginPlay()
 		}
 	}
 
+	if (UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(GetCharacterMovement()))
+		deftCharacterMovementComponent->OnLandedFromAir.AddUObject(this, &ADeftPlayerCharacter::OnLandedBeginJumpDelay);
+
 	bIsJumpReleased = true;
+	JumpDelayMaxTime = 0.2f;
+	JumpDelayTime = JumpDelayMaxTime;
 }
 
 void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
@@ -94,10 +102,26 @@ void ADeftPlayerCharacter::Look(const FInputActionValue& aValue)
 	}
 }
 
-void ADeftPlayerCharacter::StopJumpProxy()
+void ADeftPlayerCharacter::OnLandedBeginJumpDelay()
 {
-	bIsJumpReleased = true;
-	StopJumping();
+	bIsDelayingJump = true;
+	JumpDelayTime = 0.f;
+}
+
+void ADeftPlayerCharacter::UpdateJumpDelay(float aDeltaTime)
+{
+	if (!bIsDelayingJump)
+		return;
+
+	if (JumpDelayTime == JumpDelayMaxTime)
+		return;
+
+	JumpDelayTime = FMath::Min(JumpDelayTime + aDeltaTime, JumpDelayMaxTime);
+}
+
+bool ADeftPlayerCharacter::CanBeginJump()
+{
+	return bIsJumpReleased && JumpDelayTime == JumpDelayMaxTime;
 }
 
 // TODO: there is a bug where you can jump while colliding horizontally with a wall and effectively climb up the entire wall
@@ -106,17 +130,28 @@ void ADeftPlayerCharacter::BeginJumpProxy()
 {
 	// Default UE jump logic allows sequential jumps if the user holds down the jump button
 	// but I don't like that, so only allow a jump to be processed if they've released the previous
-	if (bIsJumpReleased)
+	if (CanBeginJump())
 	{
 		bIsJumpReleased = false;
+		bIsDelayingJump = false;
 		Jump();
 	}
+	else
+		UE_LOG(LogTemp, Error, TEXT("Cannot Jump!"));
+}
+
+void ADeftPlayerCharacter::StopJumpProxy()
+{
+	bIsJumpReleased = true;
+	StopJumping();
 }
 
 // Called every frame
 void ADeftPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	UpdateJumpDelay(DeltaTime);
 }
 
 // Called to bind functionality to input
@@ -127,7 +162,7 @@ void ADeftPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	if (UEnhancedInputComponent* inputComp = static_cast<UEnhancedInputComponent*>(PlayerInputComponent))
 	{
 		// Jump - TODO: perhaps write my own jump functions
-		inputComp->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ADeftPlayerCharacter::BeginJumpProxy);
+		inputComp->BindAction(JumpAction, ETriggerEvent::Started, this, &ADeftPlayerCharacter::BeginJumpProxy);
 		inputComp->BindAction(JumpAction, ETriggerEvent::Completed, this, &ADeftPlayerCharacter::StopJumpProxy);
 
 		// Move
