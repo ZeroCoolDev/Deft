@@ -49,6 +49,7 @@ private:
 	bool FindJumpApexTime(float& outApexTime);
 
 	FVector SlideDirection;
+	FVector SlideJumpAdditive;
 
 	// Jumping
 	float JumpTime;
@@ -67,6 +68,10 @@ private:
 	float SlideTime;
 	float SlideCurveStartTime;
 	float SlideCurveMaxTime;
+	float SlideMinimumStartTime;		// (deprecated) Slide will default to a minimum duration if velocity is very low (i.e. player barely taps a direction and slides)
+	
+	float SlideJumpSpeedMod;			// Jump Speed modifier based off slide speed to give the player a longer jump during slide
+	float SlideJumpSpeedModMax;
 
 	bool bIsJumping;
 	bool bIsValidJumpCurve;

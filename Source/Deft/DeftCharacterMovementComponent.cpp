@@ -6,9 +6,12 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 TAutoConsoleVariable<bool> CVar_UseEngineJump(TEXT("deft.jump.UseJumpCurve"), true, TEXT("true=use custom jump curve logic, false=use engine jump logic"));
+TAutoConsoleVariable<float> CVar_SetLoadPercent(TEXT("deft.slide.SetSlideStart"), 0.f, TEXT("set where in the slide curve slides should start"));
 
 UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, SlideDirection(FVector::ZeroVector)
+	, SlideJumpAdditive(FVector::ZeroVector)
 	, JumpCurve(nullptr)
 	, FallCurve(nullptr)
 	, JumpTime(0.f)
@@ -19,6 +22,9 @@ UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectIn
 	, SlideTime(0.f)
 	, SlideCurveStartTime(0.f)
 	, SlideCurveMaxTime(0.f)
+	, SlideMinimumStartTime(0.f)
+	, SlideJumpSpeedMod(0.f)
+	, SlideJumpSpeedModMax(0.f)
 	, JumpApexTime(0.f)
 	, JumpApexHeight(0.f)
 	, FallTime(0.f)
@@ -64,6 +70,9 @@ void UDeftCharacterMovementComponent::BeginPlay()
 	}
 	else 
 		UE_LOG(LogTemp, Error, TEXT("Missing Slide Curve"));
+
+	SlideMinimumStartTime = 0.3;
+	SlideJumpSpeedModMax = 4.f;
 }
 
 void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELevelTick aTickType, FActorComponentTickFunction* aThisTickFunction)
@@ -93,14 +102,20 @@ bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
 	if (bIsJumping)
 		return false;
 
-	if (bIsSliding)
-		StopSlide();
-
 	if (CharacterOwner && CharacterOwner->CanJump()) // TODO: 'CanJump()' may have to be overridden if we wanna allow double jump stuff
 	{
 		// Don't jump if we can't move up/down
 		if (!bConstrainToPlane || FMath::Abs(PlaneConstraintNormal.Z) != 1.f)
 		{
+
+			// Take into account any sliding additives
+			SlideJumpAdditive = FVector::ZeroVector;
+			if (bIsSliding)
+			{
+				SlideJumpAdditive = SlideDirection * SlideJumpSpeedMod;
+				StopSlide();
+			}
+
 			// Ignore gravity but keep UE air control
 			SetMovementMode(MOVE_Flying);
 
@@ -173,7 +188,8 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 		float yVelocity = jumpCurveValDelta / aDeltaTime; //note: velocity = distance / time
 
 		const FVector actorLocation = GetActorLocation();
-		FVector destinationLocation = actorLocation + FVector(0.f, 0.f, jumpCurveValDelta);
+		FVector destinationLocation = actorLocation + FVector(0.f, 0.f, jumpCurveValDelta) + SlideJumpAdditive;
+		UE_LOG(LogTemp, Warning, TEXT("SlideJumpAdditive %.2f"), SlideJumpAdditive.Length());
 
 		// Check roof collision if character is moving up
 		if (yVelocity > 0.f)
@@ -353,10 +369,9 @@ void UDeftCharacterMovementComponent::ProcessSliding(float aDeltaTime)
 	}
 
 	const float slideCurveVal = SlideCurve->GetFloatValue(SlideTime);
-	
 	const FVector capsuleLocation = UpdatedComponent->GetComponentLocation();
-	const FVector destinationLocation = capsuleLocation + (SlideDirection * slideCurveVal); // propel in the forwards direction
-	//UE_LOG(LogTemp, Warning, TEXT("sliding: prevLoc %s, destLoc %s"), *capsuleLocation.ToString(), *destinationLocation.ToString());
+	const FVector destinationLocation = capsuleLocation + (SlideDirection * slideCurveVal);
+
 	FLatentActionInfo latentInfo;
 	latentInfo.CallbackTarget = this;
 	UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
@@ -375,17 +390,23 @@ void UDeftCharacterMovementComponent::DoSlide()
 
 	bIsSliding = true;
 
-	// Move following the players last velocity
-	SlideDirection = CharacterOwner->GetVelocity().GetSafeNormal();
+	// slide in the direction of the player's last velocity but independent of it's speed (which is constant during slide excluding jump)
+	SlideDirection = Velocity.GetSafeNormal();
 
-	// Max speed = max slide distance
-	const float speedPercent = CharacterOwner->GetVelocity().Length() / GetMaxSpeed();
+	// min speed percent makes sure we can still slide even at very low velocities
+	const float minSpeedPercent = 0.5f;
+	const float speedPercent = FMath::Max(minSpeedPercent , Velocity.Length() / GetMaxSpeed());
 
-	const float minSlideTimePercent = 0.3f;
-	SlideTime = SlideCurveMaxTime - (SlideCurveMaxTime * speedPercent); // speedPercent 0 should be starting at max. speedPercent of 1 should be starting at 0
-	SlideTime = FMath::Min(minSlideTimePercent, SlideTime);
+	// Determines how far into the slide curve to start inverse proportional to speed, meaning:
+	// Max Speed = Max Slide length, 50% speed = 50% slide length. slower speeds when entering slide results in shorter slide duration
+	SlideTime = SlideCurveMaxTime - (SlideCurveMaxTime * speedPercent);
 
-	UE_LOG(LogTemp, Warning, TEXT("SlideTime starting at %f"), SlideTime);
+	// Jump displacement is affected by slide (i.e. slide to jump greater distances)
+	SlideJumpSpeedMod = SlideJumpSpeedModMax * speedPercent;
+
+	// set velocity to max speed so that the slide speed is constant 
+	Velocity = (Velocity.GetSafeNormal() * GetMaxSpeed());
+
 
 	// shrink capsul
 	// lower camera and angle left

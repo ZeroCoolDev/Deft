@@ -70,7 +70,10 @@ void ADeftPlayerCharacter::BeginPlay()
 void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 {
 	if (bIsInputMoveLocked)
+	{
+		UE_LOG(LogTemp, Error, TEXT("InputLocked! Cannot move with WASD"));
 		return;
+	}
 
 	InputMoveVector = aValue.Get<FVector2D>();
 	// TODO: add custom player controller
@@ -113,7 +116,7 @@ void ADeftPlayerCharacter::Slide()
 
 void ADeftPlayerCharacter::StopSlide()
 {
-	bIsInputMoveLocked = false;
+	bIsInputMoveLocked = false; //TODO: I saw a random bug where movement got locked when is shouldn't after doing a bunch of sequential jumps and slides
 }
 
 void ADeftPlayerCharacter::OnLandedBeginJumpDelay()
