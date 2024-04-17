@@ -23,8 +23,10 @@ public:
 protected:
 	void BeginPlay() override;
 	void TickComponent(float aDeltaTime, enum ELevelTick aTickType, FActorComponentTickFunction* aThisTickFunction) override;
+
 	bool DoJump(bool bReplayingMoves) override;
 	bool IsFalling() const override;
+	bool CanAttemptJump() const override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Jump Curve"))
 	UCurveFloat* JumpCurve;

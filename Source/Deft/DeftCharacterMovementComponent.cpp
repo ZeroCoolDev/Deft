@@ -69,10 +69,6 @@ void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELeve
 {
 	Super::TickComponent(aDeltaTime, aTickType, aThisTickFunction);
 
-	//TODO: remove me
-	const float velocityLength = CharacterOwner->GetVelocity().Length();
-	//UE_LOG(LogTemp, Log, TEXT("vel length %.2f"), velocityLength);
-
 #if !UE_BUILD_SHIPPING
 	if (!IsJumpCurveEnabled())
 		return;
@@ -95,6 +91,9 @@ bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
 
 	if (bIsJumping)
 		return false;
+
+	if (bIsSliding)
+		StopSlide();
 
 	if (CharacterOwner && CharacterOwner->CanJump()) // TODO: 'CanJump()' may have to be overridden if we wanna allow double jump stuff
 	{
@@ -132,6 +131,13 @@ bool UDeftCharacterMovementComponent::IsFalling() const
 		return Super::IsFalling();
 #endif
 	return Super::IsFalling() || bIsJumping || bIsFalling;
+}
+
+bool UDeftCharacterMovementComponent::CanAttemptJump() const
+{
+	return IsJumpAllowed() &&
+		!bWantsToCrouch &&
+		(IsMovingOnGround() || IsFalling() || bIsSliding);
 }
 
 void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
@@ -231,7 +237,12 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 			NotifyJumpApex();
 
 		if (landedOnFloor)
+		{
 			OnLandedFromAir.Broadcast();
+#if !UE_BUILD_SHIPPING
+			UE_LOG(LogTemp, Warning, TEXT("Jump Apex Height Reached: %f"), JumpHeightApexTest);
+#endif //!UE_BUILD_SHIPPING
+		}
 	}
 	else
 	{
@@ -344,18 +355,23 @@ void UDeftCharacterMovementComponent::ProcessSliding(float aDeltaTime)
 	
 	const FVector capsuleLocation = UpdatedComponent->GetComponentLocation();
 	const FVector destinationLocation = capsuleLocation + (SlideDirection * slideCurveVal); // propel in the forwards direction
-	UE_LOG(LogTemp, Warning, TEXT("Sliding for: %.5fs"), SlideTime);
 	//UE_LOG(LogTemp, Warning, TEXT("sliding: prevLoc %s, destLoc %s"), *capsuleLocation.ToString(), *destinationLocation.ToString());
 	FLatentActionInfo latentInfo;
 	latentInfo.CallbackTarget = this;
 	UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
 }
 
-void UDeftCharacterMovementComponent::DoSlide() //TODO: we want the slide speed to be constant, but the length of time spent in the slide speed to be dependent on initial velocity
+void UDeftCharacterMovementComponent::DoSlide()
 {
+	// Only allow sliding while on the ground
+	if (!IsMovingOnGround())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Cannot slide because not moving on ground"));
+		return;
+	}
+
 	SetMovementMode(MOVE_Flying);
 
-	UE_LOG(LogTemp, Log, TEXT("DoSlide!"));
 	bIsSliding = true;
 
 	// Move following the players last velocity
@@ -383,7 +399,6 @@ void UDeftCharacterMovementComponent::StopSlide()
 	UE_LOG(LogTemp, Log, TEXT("StopSlide!"));
 	bIsSliding = false;
 	SlideTime = 0.f;
-	PrevSlideCurveVal = SlideTime;
 	// restore capsul size
 	// restore camera and angle
 	// un-lock WASD movement
