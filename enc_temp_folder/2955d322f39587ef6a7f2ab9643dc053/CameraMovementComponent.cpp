@@ -27,17 +27,15 @@ UCameraMovementComponent::UCameraMovementComponent()
 	, DipLerpTimeMax(0.f)
 	, DipLerpTime(0.f)
 	, PrevDipVal(0.f)
-	, PitchLerpTime(0.f)
-	, PitchLerpTimeMax(0.f)
-	, PitchStart(0.f)
-	, PitchEnd(0.f)
-	, PrevPitch(0.f)
+	, BackTiltLerpTime(0.f)
+	, BackTiltLerpTimeMax(0.f)
+	, BackTiltStart(0.f)
+	, BackTiltEnd(0.f)
 	, HighestTiltTimeAchieved(0.f)
-	, UnPitchLerpTime(0.f)
-	, UnPitchLerpTimeMax(0.f)
-	, PrevUnPitch(0.f)
-	, bIsPitchActive(false)
-	, bIsUnPitchActive(false)
+	, UnBackTiltLerpTime(0.f)
+	, UnBackTiltLerpTimeMax(0.f)
+	, bIsBackTiltActive(false)
+	, bIsUnBackTiltActive(false)
 	, bNeedsUnroll(false)
 	, bUnrollFromLeft(false)
 	, bNeedsDip(false)
@@ -96,10 +94,10 @@ void UCameraMovementComponent::BeginPlay()
 	else
 		UE_LOG(LogTemp, Error, TEXT("Landed From Air Dip curve is invalid"));
 
-	PitchLerpTimeMax = 0.3f;
-	PitchStart = 0.f;
-	PitchEnd = 2.f;
-	UnPitchLerpTimeMax = 0.15f;
+	BackTiltLerpTimeMax = 0.3f;
+	BackTiltStart = 0.f;
+	BackTiltEnd = 3.f;
+	UnBackTiltLerpTimeMax = 0.1f;
 }
 
 void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -109,7 +107,7 @@ void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	ProcessCameraBobble(DeltaTime);
 	ProcessCameraRoll(DeltaTime);
 	ProcessCameraDip(DeltaTime);
-	ProcessCameraPitch(DeltaTime);
+	ProcessCameraTilt(DeltaTime);
 
 	PreviousInputVector = DeftPlayerCharacter->GetInputMoveVector();
 }
@@ -252,81 +250,78 @@ void UCameraMovementComponent::ProcessCameraDip(float aDeltaTime)
 	}
 }
 
-void UCameraMovementComponent::ProcessCameraPitch(float aDeltaTime)
+void UCameraMovementComponent::ProcessCameraTilt(float aDeltaTime)
 {
 	const bool isBackwardsInput = DeftPlayerCharacter->GetInputMoveVector().Y < 0.f;
 	const bool wasBackwardsInput = PreviousInputVector.Y < 0.f;
+	//UE_LOG(LogTemp, Warning, TEXT("Y %.2f, Prev Y %.2f"), DeftPlayerCharacter->GetInputMoveVector().Y, PreviousInputVector.Y);
+
+	// TODO: So there is an issue here that tilting manually conflicts with the mouse pitch...which makes sense
+	// just not sure how to resolve it atm
+	// I think it might just have to be additive with the mouse pitch so like sending the input up to the playerCharacter::Look?
+	// AddControllerPitchInput
 
 	if (!isBackwardsInput && wasBackwardsInput)
-		InitUnPitch();
-	else if (isBackwardsInput && !wasBackwardsInput)
-		InitPitch();
-
-	if (bIsPitchActive)
 	{
-		PitchLerpTime += aDeltaTime;
-		// once we reach the end of the lerp cease adding pitch
-		if (PitchLerpTime > PitchLerpTimeMax)
-			return;
-		HighestTiltTimeAchieved = PitchLerpTime;
+		UE_LOG(LogTemp, Warning, TEXT("untilting"));
+		// un-tilt
+		bIsUnBackTiltActive = true;
+		// Time to un-tilt is faster than tilting so need to map time from tilt to un-tilt range
+		const float untiltLerpInTiltRange = BackTiltLerpTimeMax - HighestTiltTimeAchieved;
+		UnBackTiltLerpTime = (untiltLerpInTiltRange / BackTiltLerpTimeMax) * UnBackTiltLerpTimeMax;
+
+		bIsBackTiltActive = false;
+		BackTiltLerpTime = 0.f;
+	}
+	else if (isBackwardsInput && !wasBackwardsInput)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("tilt"));
+		// tilt
+		bIsBackTiltActive = true;
+		BackTiltLerpTime = 0.f;
+
+		bIsUnBackTiltActive = false;
+		UnBackTiltLerpTime = 0.f;
+	}
+
+	if (bIsBackTiltActive)
+	{
+		BackTiltLerpTime += aDeltaTime;
+		// reached the end of the lerp
+		if (BackTiltLerpTime > BackTiltLerpTimeMax)
+			BackTiltLerpTime = BackTiltLerpTimeMax;
+		HighestTiltTimeAchieved = BackTiltLerpTime;
+
+		//UE_LOG(LogTemp, Warning, TEXT("BackTiltLerpTime: %.2f"), BackTiltLerpTime);
 
 		// lerp!
-		const float percent = PitchLerpTime / PitchLerpTimeMax;
-		const float pitch = FMath::Lerp(PitchStart, PitchEnd, percent);
-		const float pitchDelta = FMath::Abs(PrevPitch - pitch);
+		const float percent = BackTiltLerpTime / BackTiltLerpTimeMax;
+		float backTilt = FMath::Lerp(BackTiltStart, BackTiltEnd, percent);
 
-		DeftPlayerCharacter->AddControllerPitchInput(-pitchDelta);
-
-		PrevPitch = pitch;
+		const FRotator rotation = DeftPlayerCharacter->GetController()->GetControlRotation();
+		const FRotator newRotation(backTilt, rotation.Yaw, rotation.Roll);
+		DeftPlayerCharacter->GetController()->SetControlRotation(newRotation);
 	}
-	else if (bIsUnPitchActive)
+	else if (bIsUnBackTiltActive)
 	{
-		UnPitchLerpTime += aDeltaTime;
-		if (UnPitchLerpTime > UnPitchLerpTimeMax)
+		//UE_LOG(LogTemp, Warning, TEXT("UnBackTiltLerpTime: %.2f"), UnBackTiltLerpTime);
+
+		UnBackTiltLerpTime += aDeltaTime;
+		if (UnBackTiltLerpTime > UnBackTiltLerpTimeMax)
 		{
-			UnPitchLerpTime = UnPitchLerpTimeMax;
-			bIsUnPitchActive = false; // this is the last untilt frame
+			UE_LOG(LogTemp, Warning, TEXT("Unbacktilt complete"));
+			UnBackTiltLerpTime = UnBackTiltLerpTimeMax;
+			bIsUnBackTiltActive = false; // this is the last untilt frame
 		}
 
 		// lerp!
-		const float percent = UnPitchLerpTime / UnPitchLerpTimeMax;
-		float unPitch = FMath::Lerp(PitchEnd, PitchStart, percent);
-		const float unPitchDetlta = FMath::Abs(PrevUnPitch - unPitch);
-		DeftPlayerCharacter->AddControllerPitchInput(unPitchDetlta);
+		const float percent = UnBackTiltLerpTime / UnBackTiltLerpTimeMax;
+		float unbacktilt = FMath::Lerp(BackTiltEnd, BackTiltStart, percent);
 
-		PrevUnPitch = unPitch;
+		const FRotator rotation = DeftPlayerCharacter->GetController()->GetControlRotation();
+		const FRotator newRotation(unbacktilt, rotation.Yaw, rotation.Roll);
+		DeftPlayerCharacter->GetController()->SetControlRotation(newRotation);
 	}
-}
-
-void UCameraMovementComponent::InitPitch()
-{
-	bIsPitchActive = true;
-	PitchLerpTime = 0.f;
-	PrevPitch = 0.f;
-
-	// reset un-tilt
-	bIsUnPitchActive = false;
-	UnPitchLerpTime = 0.f;
-}
-
-void UCameraMovementComponent::InitUnPitch()
-{
-	bIsUnPitchActive = true;
-
-	// Time to un-tilt is faster than tilting so need to map time from tilt to un-tilt range
-	// 100% highest tilt should start at 0% untilt since the range is opposite
-	// ex: tilt 0->3 while untilt 3->0
-	const float untiltLerpInTiltRange = PitchLerpTimeMax - HighestTiltTimeAchieved;
-	UnPitchLerpTime = (untiltLerpInTiltRange / PitchLerpTimeMax) * UnPitchLerpTimeMax;
-
-	// store the previous pitch as the starting point for smooth transition back from tilting otherwise there is a large delta since they don't have the same lerp time range
-	const float percent = UnPitchLerpTime / UnPitchLerpTimeMax;
-	const float unPitch = FMath::Lerp(PitchEnd, PitchStart, percent);
-	PrevUnPitch = unPitch;
-
-	// reset tilt
-	bIsPitchActive = false;
-	PitchLerpTime = 0.f;
 }
 
 void UCameraMovementComponent::OnLandedFromAir()

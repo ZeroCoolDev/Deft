@@ -103,6 +103,7 @@ void ADeftPlayerCharacter::Look(const FInputActionValue& aValue)
 	{
 		AddControllerYawInput(input.X);
 		AddControllerPitchInput(input.Y);
+		UE_LOG(LogTemp, Warning, TEXT("%.2f"), input.Y);
 	}
 }
 

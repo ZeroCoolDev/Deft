@@ -34,10 +34,7 @@ private:
 	void ProcessCameraBobble(float aDeltaTime);
 	void ProcessCameraRoll(float aDeltaTime);
 	void ProcessCameraDip(float aDeltaTime);
-
-	void ProcessCameraPitch(float aDeltaTime);
-	void InitPitch();
-	void InitUnPitch();
+	void ProcessCameraTilt(float aDeltaTime);
 
 	void OnLandedFromAir();
 
@@ -66,18 +63,16 @@ private:
 	float PrevDipVal;
 
 	// Back Tilt
-	float PitchLerpTime;
-	float PitchLerpTimeMax;
-	float PitchStart;
-	float PitchEnd;
-	float PrevPitch;
+	float BackTiltLerpTime;
+	float BackTiltLerpTimeMax;
+	float BackTiltStart;
+	float BackTiltEnd;
 	float HighestTiltTimeAchieved;
-	float UnPitchLerpTime;
-	float UnPitchLerpTimeMax;
-	float PrevUnPitch;
+	float UnBackTiltLerpTime;
+	float UnBackTiltLerpTimeMax;
 
-	bool bIsPitchActive;
-	bool bIsUnPitchActive;
+	bool bIsBackTiltActive;
+	bool bIsUnBackTiltActive;
 
 	bool bNeedsUnroll;
 	bool bUnrollFromLeft;
