@@ -32,12 +32,17 @@ protected:
 
 private:
 	void ProcessCameraBobble(float aDeltaTime);
+
 	void ProcessCameraRoll(float aDeltaTime);
+	void Roll(float aDeltaTime, bool aIsLeaningLeft);
+	void PreUnRoll(bool aWasLeaningLeft);
+	void UnRoll(float aDeltaTime);
+
 	void ProcessCameraDip(float aDeltaTime);
 
 	void ProcessCameraPitch(float aDeltaTime);
-	void InitPitch();
-	void InitUnPitch();
+	void PrePitch();
+	void PreUnPitch();
 
 	void OnLandedFromAir();
 

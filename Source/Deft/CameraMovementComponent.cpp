@@ -7,8 +7,8 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 
+//TODO: maybesplit this into 4 CameraMovementComponent classes: Bobble, Roll, Dip(Land), Pitch 
 
-// Sets default values for this component's properties
 UCameraMovementComponent::UCameraMovementComponent()
 	: WalkBobbleCurve(nullptr)
 	, DeftPlayerCharacter(nullptr)
@@ -96,6 +96,7 @@ void UCameraMovementComponent::BeginPlay()
 	else
 		UE_LOG(LogTemp, Error, TEXT("Landed From Air Dip curve is invalid"));
 
+	// Pitch setup
 	PitchLerpTimeMax = 0.3f;
 	PitchStart = 0.f;
 	PitchEnd = 2.f;
@@ -116,7 +117,7 @@ void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 
 void UCameraMovementComponent::ProcessCameraBobble(float aDeltaTime)
 {
-	if (bNeedsDip) // don't play dip and bobble at the same time
+	if (bNeedsDip) // don't play dip and bobble at the same time otherwise they fight eachtoher
 		return;
 
 	if (!WalkBobbleCurve)
@@ -169,58 +170,70 @@ void UCameraMovementComponent::ProcessCameraRoll(float aDeltaTime)
 
 	// Will only trigger for the frame that input stopped
 	if (stoppedLeaningRight || stoppedLeaningLeft)
-	{
-		// Time to unroll is faster than rolling so need to map time from roll to unroll range
-		const float unrollLerpInRollRange = RollLerpTimeMax - HighestRollTimeAchieved;
-		UnrollLerpTime = (unrollLerpInRollRange / RollLerpTimeMax) * UnrollLerpTimeMax;
+		PreUnRoll(wasLeaningLeft);
 
-		bUnrollFromLeft = wasLeaningLeft;
-		RollLerpTime = 0.f; // reset roll lerp since we're unrolling so that the time isn't carried over to an different lean
-		bNeedsUnroll = true;
-		HighestRollTimeAchieved = 0.f;
-	}
-
-	// TODO: Unrolling in should be quicker than rolling out
 	// Rolling back into origin
 	if (bNeedsUnroll)
 	{
-		UnrollLerpTime += aDeltaTime;
-		if (UnrollLerpTime > UnrollLerpTimeMax)
-		{
-			UnrollLerpTime = UnrollLerpTimeMax;
-			bNeedsUnroll = false; // this is the last unroll frame we need
-		}
-
-		// lerp!
-		const float percent = UnrollLerpTime / UnrollLerpTimeMax;
-		float unroll = FMath::Lerp(RollLerpEnd, RollLerpStart, percent);
-		if (bUnrollFromLeft)
-			unroll *= -1.f;
-
-		const FRotator rotation = DeftPlayerCharacter->GetController()->GetControlRotation();
-		const FRotator newRotation(rotation.Pitch, rotation.Yaw, unroll);
-		DeftPlayerCharacter->GetController()->SetControlRotation(newRotation);
+		UnRoll(aDeltaTime);
 	}
-	else if (isLeaningRight || isLeaningLeft)	// Rolling out can only occur if we're not unrolling
+	else if (isLeaningRight || isLeaningLeft)
 	{
 		if (startedLeaningRight || startedLeaningLeft)
 			RollLerpTime = 0.f;
 
-		RollLerpTime += aDeltaTime;
-		if (RollLerpTime > RollLerpTimeMax)
-			RollLerpTime = RollLerpTimeMax;
-		HighestRollTimeAchieved = RollLerpTime;
-
-		// lerp!
-		const float percent = RollLerpTime / RollLerpTimeMax;
-		float roll = FMath::Lerp(RollLerpStart, RollLerpEnd, percent);
-		if (isLeaningLeft)
-			roll *= -1.f;
-	
-		const FRotator rotation = DeftPlayerCharacter->GetController()->GetControlRotation();
-		const FRotator newRotation(rotation.Pitch, rotation.Yaw, roll);
-		DeftPlayerCharacter->GetController()->SetControlRotation(newRotation);
+		Roll(aDeltaTime, isLeaningLeft);
 	}
+}
+
+void UCameraMovementComponent::Roll(float aDeltaTime, bool aIsLeaningLeft)
+{
+	RollLerpTime += aDeltaTime;
+	if (RollLerpTime > RollLerpTimeMax)
+		RollLerpTime = RollLerpTimeMax;
+	HighestRollTimeAchieved = RollLerpTime;
+
+	// lerp!
+	const float percent = RollLerpTime / RollLerpTimeMax;
+	float roll = FMath::Lerp(RollLerpStart, RollLerpEnd, percent);
+	if (aIsLeaningLeft)
+		roll *= -1.f;
+
+	const FRotator rotation = DeftPlayerCharacter->GetController()->GetControlRotation();
+	const FRotator newRotation(rotation.Pitch, rotation.Yaw, roll);
+	DeftPlayerCharacter->GetController()->SetControlRotation(newRotation);
+}
+
+void UCameraMovementComponent::PreUnRoll(bool aWasLeaningLeft)
+{
+	// Time to unroll is faster than rolling so need to map time from roll to unroll range
+	const float unrollLerpInRollRange = RollLerpTimeMax - HighestRollTimeAchieved;
+	UnrollLerpTime = (unrollLerpInRollRange / RollLerpTimeMax) * UnrollLerpTimeMax;
+
+	bUnrollFromLeft = aWasLeaningLeft;
+	RollLerpTime = 0.f; // reset roll lerp since we're unrolling so that the time isn't carried over to an different lean
+	bNeedsUnroll = true;
+	HighestRollTimeAchieved = 0.f;
+}
+
+void UCameraMovementComponent::UnRoll(float aDeltaTime)
+{
+	UnrollLerpTime += aDeltaTime;
+	if (UnrollLerpTime > UnrollLerpTimeMax)
+	{
+		UnrollLerpTime = UnrollLerpTimeMax;
+		bNeedsUnroll = false; // this is the last unroll frame we need
+	}
+
+	// lerp!
+	const float percent = UnrollLerpTime / UnrollLerpTimeMax;
+	float unroll = FMath::Lerp(RollLerpEnd, RollLerpStart, percent);
+	if (bUnrollFromLeft)
+		unroll *= -1.f;
+
+	const FRotator rotation = DeftPlayerCharacter->GetController()->GetControlRotation();
+	const FRotator newRotation(rotation.Pitch, rotation.Yaw, unroll);
+	DeftPlayerCharacter->GetController()->SetControlRotation(newRotation);
 }
 
 void UCameraMovementComponent::ProcessCameraDip(float aDeltaTime)
@@ -258,9 +271,9 @@ void UCameraMovementComponent::ProcessCameraPitch(float aDeltaTime)
 	const bool wasBackwardsInput = PreviousInputVector.Y < 0.f;
 
 	if (!isBackwardsInput && wasBackwardsInput)
-		InitUnPitch();
+		PreUnPitch();
 	else if (isBackwardsInput && !wasBackwardsInput)
-		InitPitch();
+		PrePitch();
 
 	if (bIsPitchActive)
 	{
@@ -298,7 +311,7 @@ void UCameraMovementComponent::ProcessCameraPitch(float aDeltaTime)
 	}
 }
 
-void UCameraMovementComponent::InitPitch()
+void UCameraMovementComponent::PrePitch()
 {
 	bIsPitchActive = true;
 	PitchLerpTime = 0.f;
@@ -309,7 +322,7 @@ void UCameraMovementComponent::InitPitch()
 	UnPitchLerpTime = 0.f;
 }
 
-void UCameraMovementComponent::InitUnPitch()
+void UCameraMovementComponent::PreUnPitch()
 {
 	bIsUnPitchActive = true;
 
