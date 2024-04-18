@@ -151,23 +151,9 @@ bool UDeftCharacterMovementComponent::IsFalling() const
 
 bool UDeftCharacterMovementComponent::CanAttemptJump() const
 {
-	return IsJumpAllowed() && (IsMovingOnGround() || IsFalling() || bIsSliding);
-}
-
-bool UDeftCharacterMovementComponent::CanCrouchInCurrentState() const
-{
-	if (!CanEverCrouch())
-		return false;
-
-	return (IsFalling() || IsMovingOnGround() || bIsSliding) && UpdatedComponent && !UpdatedComponent->IsSimulatingPhysics();
-}
-
-void UDeftCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
-{
-	Super::OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
-
-	if (MovementMode == MOVE_Flying)
-		bCrouchMaintainsBaseLocation = true;
+	return IsJumpAllowed() &&
+		!bWantsToCrouch &&
+		(IsMovingOnGround() || IsFalling() || bIsSliding);
 }
 
 void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
@@ -422,32 +408,6 @@ void UDeftCharacterMovementComponent::DoSlide()
 
 
 	// shrink capsul
-	// TODO: (optional) would be neat to implement this ourselves use UCharacterMovementComponent::Crouch
-	// We have to manually move the capsul component to the floor since Crouch shrinks from both ends
-	CharacterOwner->Crouch();
-
-	//if (UCapsuleComponent* capsuleComponent = CharacterOwner->GetCapsuleComponent())
-	//{
-	//	const float capsuleOriginalHeight = capsuleComponent->GetUnscaledCapsuleHalfHeight();
-	//	capsuleComponent->SetCapsuleHalfHeight(capsuleOriginalHeight / 2.f);
-
-	//	UpdatedComponent->MoveComponent(FVector(0.f, 0.f, )
-
-	//	const FVector capsulLoc = UpdatedComponent->GetComponentLocation();
-	//	FVector destinationLoc = capsulLoc - FVector(0.f, 0.f, 100.f);// magic number 100 is just to reliably sweep far enough to find _a_ floor
-	//	FFindFloorResult floorResult;
-	//	if (FindFloorBySweep(floorResult, capsulLoc, destinationLoc))
-	//	{
-	//		UE_LOG(LogTemp, Warning, TEXT("found floor"));
-	//		const float floorDistance = floorResult.GetDistanceToFloor();
-	//		destinationLoc = capsulLoc - FVector(0.f, 0.f, floorDistance);
-
-	//		FLatentActionInfo latentInfo;
-	//		latentInfo.CallbackTarget = this;
-	//		UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLoc, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
-	//	}
-	//}
-
 	// lower camera and angle left
 	// lock WASD movement
 	// TODO: add on screen trail effects
@@ -464,10 +424,7 @@ void UDeftCharacterMovementComponent::StopSlide()
 
 	bIsSliding = false;
 	SlideTime = 0.f;
-
-	// restore capsul size and shift it down
-	CharacterOwner->UnCrouch();
-
+	// restore capsul size
 	// restore camera and angle
 	// un-lock WASD movement
 	// TODO: remove on screen trail effects

@@ -67,16 +67,11 @@ void ADeftPlayerCharacter::BeginPlay()
 	JumpDelayTime = JumpDelayMaxTime;
 }
 
-bool ADeftPlayerCharacter::CanJumpInternal_Implementation() const
-{
-	return JumpIsAllowedInternal();
-}
-
 void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 {
 	if (bIsInputMoveLocked)
 	{
-		//UE_LOG(LogTemp, Error, TEXT("InputLocked but attempting to move! Cannot move with WASD"));
+		UE_LOG(LogTemp, Error, TEXT("InputLocked! Cannot move with WASD"));
 		return;
 	}
 
@@ -89,7 +84,7 @@ void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 		const FRotator yawRotation(0, rotation.Yaw, 0);
 
 		// get forward vector
-		// note: is there a benefit from getting forward form the rotation and not just ActorForwardVector?
+		// TODO: is there a benefit from getting forward form the rotation and not just ActorForwardVector?
 		const FVector forwardDir = FRotationMatrix(yawRotation).GetUnitAxis(EAxis::X);
 		const FVector rightDir = FRotationMatrix(yawRotation).GetUnitAxis(EAxis::Y);
 
@@ -100,12 +95,15 @@ void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 
 void ADeftPlayerCharacter::Look(const FInputActionValue& aValue)
 {
+	// input is a vector2S
 	FVector2D input = aValue.Get<FVector2D>();
+	//UE_LOG(LogTemp, Warning, TEXT("Look Up/Down: %.2f, Right/Left: %.2f"), input.Y, input.X);
 
 	if (Controller)
 	{
 		AddControllerYawInput(input.X);
 		AddControllerPitchInput(input.Y);
+		UE_LOG(LogTemp, Warning, TEXT("%.2f"), input.Y);
 	}
 }
 

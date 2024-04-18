@@ -27,8 +27,6 @@ protected:
 	bool DoJump(bool bReplayingMoves) override;
 	bool IsFalling() const override;
 	bool CanAttemptJump() const override;
-	bool CanCrouchInCurrentState() const override;
-	void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Jump Curve"))
 	UCurveFloat* JumpCurve;

@@ -25,8 +25,7 @@ public:
 
 protected:
 	// Called when the game starts or when spawned
-	void BeginPlay() override;
-	bool CanJumpInternal_Implementation() const override;
+	virtual void BeginPlay() override;
 
 	void Move(const FInputActionValue& aValue);
 	void Look(const FInputActionValue& aValue);
