@@ -13,6 +13,7 @@ UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectIn
 	: Super(ObjectInitializer)
 	, JumpCurve(nullptr)
 	, FallCurve(nullptr)
+	, SlideCurve(nullptr)
 	, SlideDirection(FVector::ZeroVector)
 	, SlideJumpAdditive(FVector::ZeroVector)
 	, JumpTime(0.f)

@@ -66,7 +66,6 @@ private:
 	float WalkBobbleTime;
 	float WalkBobbleMaxTime;
 	float PrevWalkBobbleVal;
-	float WalkBobbleDelta;
 
 	// Roll/Unroll
 	float RollLerpTimeMax;

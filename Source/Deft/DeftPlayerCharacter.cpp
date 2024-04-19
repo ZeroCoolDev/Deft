@@ -75,7 +75,7 @@ bool ADeftPlayerCharacter::CanJumpInternal_Implementation() const
 
 void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 {
-	if (DeftLocks::IsInputLocked())//(bIsInputMoveLocked)
+	if (DeftLocks::IsInputLocked())
 	{
 		//UE_LOG(LogTemp, Error, TEXT("InputLocked but attempting to move! Cannot move with WASD"));
 		return;
@@ -177,7 +177,7 @@ void ADeftPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 	if (UEnhancedInputComponent* inputComp = static_cast<UEnhancedInputComponent*>(PlayerInputComponent))
 	{
-		// Jump - TODO: perhaps write my own jump functions
+		// Jump
 		inputComp->BindAction(JumpAction, ETriggerEvent::Started, this, &ADeftPlayerCharacter::BeginJumpProxy);
 		inputComp->BindAction(JumpAction, ETriggerEvent::Completed, this, &ADeftPlayerCharacter::StopJumpProxy);
 
