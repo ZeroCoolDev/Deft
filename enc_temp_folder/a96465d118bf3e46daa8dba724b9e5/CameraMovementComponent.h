@@ -95,7 +95,6 @@ private:
 	float SlideZPosStart;
 	float SlideZPosEnd;
 	float PrevSlideZPos;
-	float HighestSlideZPosTimeAchieved;
 	// TODO: not stoked about this, but it allows code reuse so thats cool
 	float SlideRollEndOverride;
 	float SlideRollLerpTimeMaxOverride;

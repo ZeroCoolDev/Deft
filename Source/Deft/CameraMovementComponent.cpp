@@ -10,7 +10,12 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 //TODO: maybesplit this into 5 CameraMovementComponent classes: Bobble, Roll, Dip(Land), Pitch , Slide
-TAutoConsoleVariable<bool> CVar_StopRollOnSlide(TEXT("deft.slide.StopRollOnSlide"), true, TEXT("true = early return if sliding, false = ProcessRoll"));
+TAutoConsoleVariable<bool> CVar_EnableBobble(TEXT("deft.camreafeatures.enable.Bobble"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_EnableRoll(TEXT("deft.camreafeatures.enable.Roll"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_EnableDip(TEXT("deft.camreafeatures.enable.Dip"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_EnablePitch(TEXT("deft.camreafeatures.enable.Pitch"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_EnableSlide(TEXT("deft.camreafeatures.enable.Slide"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+
 
 UCameraMovementComponent::UCameraMovementComponent()
 	: WalkBobbleCurve(nullptr)
@@ -45,6 +50,7 @@ UCameraMovementComponent::UCameraMovementComponent()
 	, SlideZPosStart(0.f)
 	, SlideZPosEnd(0.f)
 	, PrevSlideZPos(0.f)
+	, HighestSlideZPosTimeAchieved(0.f)
 	, SlideRollEndOverride(0.f)
 	, SlideRollLerpTimeMaxOverride(0.f)
 	, bIsPitchActive(false)
@@ -129,11 +135,16 @@ void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	//ProcessCameraBobble(DeltaTime);
-	ProcessCameraRoll(DeltaTime);
-	ProcessCameraDip(DeltaTime);
-	ProcessCameraPitch(DeltaTime);
-	ProcessCameraSlide(DeltaTime);
+	if (CVar_EnableBobble.GetValueOnGameThread())
+		ProcessCameraBobble(DeltaTime);
+	if (CVar_EnableRoll.GetValueOnGameThread())
+		ProcessCameraRoll(DeltaTime);
+	if (CVar_EnableDip.GetValueOnGameThread())
+		ProcessCameraDip(DeltaTime);
+	if (CVar_EnablePitch.GetValueOnGameThread())
+		ProcessCameraPitch(DeltaTime);
+	if (CVar_EnableSlide.GetValueOnGameThread())
+		ProcessCameraSlide(DeltaTime);
 
 	GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::Green, FString::Printf(TEXT("%.2f"), CameraTarget->GetRelativeLocation().Z));
 
@@ -285,25 +296,31 @@ void UCameraMovementComponent::ProcessCameraDip(float aDeltaTime)
 	if (!CameraTarget.IsValid())
 		return;
 
-	if (DipLerpTime >= DipLerpTimeMax)
-	{
-		bNeedsDip = false;
-		return;
-	}
-
+	const float prevDipLerpTime = DipLerpTime;
 	DipLerpTime += aDeltaTime;
-	if (DipLerpTime <= DipLerpTimeMax)
+	if (DipLerpTime > DipLerpTimeMax)
 	{
-		const float dipCurveVal = LandedFromAirDipCuve->GetFloatValue(DipLerpTime);
-		const float dipCurveValDelta = dipCurveVal - PrevDipVal;
-
-		PrevDipVal = dipCurveVal;
-
-		const FVector cameraLocation = CameraTarget->GetRelativeLocation();
-		const FVector newLocation = cameraLocation - FVector(0.f, 0.f, dipCurveValDelta);
-
-		CameraTarget->SetRelativeLocation(newLocation, false, nullptr, ETeleportType::TeleportPhysics);
+		if (prevDipLerpTime < DipLerpTimeMax)
+		{
+			// Last frame making sure we hit the max and min
+			DipLerpTime = DipLerpTimeMax;
+		}
+		else
+		{
+			bNeedsDip = false;
+			return;
+		}
 	}
+
+	const float dipCurveVal = LandedFromAirDipCuve->GetFloatValue(DipLerpTime);
+	const float dipCurveValDelta = dipCurveVal - PrevDipVal;
+
+	PrevDipVal = dipCurveVal;
+
+	const FVector cameraLocation = CameraTarget->GetRelativeLocation();
+	const FVector newLocation = cameraLocation - FVector(0.f, 0.f, dipCurveValDelta);
+
+	CameraTarget->SetRelativeLocation(newLocation, false, nullptr, ETeleportType::TeleportPhysics);
 }
 
 void UCameraMovementComponent::ProcessCameraPitch(float aDeltaTime)
@@ -422,6 +439,7 @@ void UCameraMovementComponent::ProcessCameraSlide(float aDeltaTime)
 				}
 			}
 		}
+		HighestSlideZPosTimeAchieved = SlideZPosLerpTime;
 
 		// TODO: This is a little messy, cleanup rather than having to do a buncha terinaries
 
@@ -435,7 +453,7 @@ void UCameraMovementComponent::ProcessCameraSlide(float aDeltaTime)
 		const FVector destinationLocation = cameraLocation - FVector(0.f, 0.f, bIsSlideActive ? cameraZPosDelta : -cameraZPosDelta);
 		CameraTarget->SetRelativeLocation(destinationLocation);
 
-		UE_LOG(LogTemp, Warning, TEXT("percent zPos %.2f: cam Z %.2f"), percent, CameraTarget->GetRelativeLocation().Z);
+		UE_LOG(LogTemp, Warning, TEXT("%.2f%%:, lerpRes %.2f, cam src->dest %.2f -> %.2f"), percent, newCameraZPos, cameraLocation.Z, destinationLocation.Z);
 		PrevSlideZPos = newCameraZPos;
 	}
 }
@@ -444,6 +462,7 @@ void UCameraMovementComponent::EnterSlide()
 {
 	DeftLocks::IncrementSlideLockRef();
 
+	HighestSlideZPosTimeAchieved = 0.f;
 	SlideZPosLerpTime = 0.f;
 	PrevSlideZPos = SlideZPosStart;
 	bIsSlideActive = true;
@@ -454,8 +473,14 @@ void UCameraMovementComponent::EnterSlide()
 
 void UCameraMovementComponent::UnSlide()
 {
-	SlideZPosLerpTime = 0.f;
-	PrevSlideZPos = SlideZPosEnd;
+	// unSliding just inverts the range, so wherever we made it to when sliding (ex 2.5/3 for a total of slide time = 2.5)
+	// we need to start unSliding at 0.5/3 so the total unSlide time = 2.5
+	SlideZPosLerpTime = SlideZPosLerpTimeMax - HighestSlideZPosTimeAchieved;
+
+	// Setting previous to the current lerp time value so we don't have a huge jump for 1 frame since the range is reversed from sliding
+	const float percent = SlideZPosLerpTime / SlideZPosLerpTimeMax;
+	PrevSlideZPos = FMath::Lerp(SlideZPosEnd, SlideZPosStart, percent);
+
 	bIsUnSlideActive = true;
 	bIsSlideActive = false;
 
@@ -466,6 +491,7 @@ void UCameraMovementComponent::UnSlide()
 void UCameraMovementComponent::ExitSlide()
 {
 	SlideZPosLerpTime = 0.f;
+	HighestSlideZPosTimeAchieved = 0.f;
 	bIsSlideActive = false;
 	bIsUnSlideActive = false;
 

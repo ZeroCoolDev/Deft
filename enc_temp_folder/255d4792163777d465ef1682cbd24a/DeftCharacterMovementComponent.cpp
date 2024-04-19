@@ -6,8 +6,8 @@
 #include "GameFramework/Character.h"
 #include "Kismet/KismetSystemLibrary.h"
 
-TAutoConsoleVariable<bool> CVar_UseEngineJump(TEXT("deft.jump.UseJumpCurve"), true, TEXT("true=use custom jump curve logic, false=use engine jump logic"), ECVF_Cheat);
-TAutoConsoleVariable<float> CVar_SetLoadPercent(TEXT("deft.slide.SetSlideStart"), 0.f, TEXT("set where in the slide curve slides should start"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_UseEngineJump(TEXT("deft.jump.UseJumpCurve"), true, TEXT("true=use custom jump curve logic, false=use engine jump logic"));
+TAutoConsoleVariable<float> CVar_SetLoadPercent(TEXT("deft.slide.SetSlideStart"), 0.f, TEXT("set where in the slide curve slides should start"));
 
 UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
