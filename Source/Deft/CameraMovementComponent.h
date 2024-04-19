@@ -114,5 +114,20 @@ private:
 
 	bool bNeedsDip;
 	
-	bool bIsWalkBobbleActive;
+#if !UE_BUILD_SHIPPING
+	void DrawDebug();
+	void DrawBobbleDebug();
+	/*
+		bobble lerp time / max
+		previous bobble time
+		any early bails
+		should early stop
+
+		camera Z position 
+	*/
+	//void DrawRollDebug();
+	//void DrawDipDebug();
+	//void DrawPitchDebug();
+	//void DrawSlideDebug();
+#endif//!UE_BUILD_SHIPPING
 };

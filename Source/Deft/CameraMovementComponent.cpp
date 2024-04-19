@@ -11,10 +11,19 @@
 
 //TODO: maybesplit this into 5 CameraMovementComponent classes: Bobble, Roll, Dip(Land), Pitch , Slide
 TAutoConsoleVariable<bool> CVar_EnableBobble(TEXT("deft.camreafeatures.enable.Bobble"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugBobble(TEXT("deft.camreafeatures.debug.Bobble"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+
 TAutoConsoleVariable<bool> CVar_EnableRoll(TEXT("deft.camreafeatures.enable.Roll"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugRoll(TEXT("deft.camreafeatures.enable.Roll"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+
 TAutoConsoleVariable<bool> CVar_EnableDip(TEXT("deft.camreafeatures.enable.Dip"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugDip(TEXT("deft.camreafeatures.debug.Dip"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+
 TAutoConsoleVariable<bool> CVar_EnablePitch(TEXT("deft.camreafeatures.enable.Pitch"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugPitch(TEXT("deft.camreafeatures.debug.Pitch"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+
 TAutoConsoleVariable<bool> CVar_EnableSlide(TEXT("deft.camreafeatures.enable.Slide"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugSlide(TEXT("deft.camreafeatures.debug.Slide"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
 
 
 UCameraMovementComponent::UCameraMovementComponent()
@@ -59,7 +68,6 @@ UCameraMovementComponent::UCameraMovementComponent()
 	, bNeedsUnroll(false)
 	, bUnrollFromLeft(false)
 	, bNeedsDip(false)
-	, bIsWalkBobbleActive(false)
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
@@ -149,9 +157,11 @@ void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	if (CVar_EnableSlide.GetValueOnGameThread())
 		ProcessCameraSlide(DeltaTime);
 
-	GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::Green, FString::Printf(TEXT("%.2f"), CameraTarget->GetRelativeLocation().Z));
-
 	PreviousInputVector = DeftCharacter->GetInputMoveVector();
+
+#if !UE_BUILD_SHIPPING
+	DrawDebug();
+#endif//!UE_BUILD_SHIPPING
 }
 
 void UCameraMovementComponent::ProcessCameraBobble(float aDeltaTime)
@@ -524,3 +534,19 @@ void UCameraMovementComponent::OnSlideActionOccured(bool aIsSlideActive)
 		UnSlide();
 }
 
+#if !UE_BUILD_SHIPPING
+void UCameraMovementComponent::DrawDebug()
+{
+	if (CVar_DebugBobble.GetValueOnGameThread())
+		DrawBobbleDebug();
+}
+
+void UCameraMovementComponent::DrawBobbleDebug()
+{
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::Cyan, FString::Printf(TEXT("Bobble Lerp %.2f%%\nCamera Z Height %.2f"), WalkBobbleTime / WalkBobbleMaxTime, CameraTarget->GetRelativeLocation().Z));
+	}
+}
+
+#endif//!UE_BUILD_SHIPPING
