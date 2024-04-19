@@ -2,6 +2,7 @@
 
 #include "DeftCharacterMovementComponent.h"
 #include "DeftPlayerCharacter.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -36,6 +37,11 @@ UCameraMovementComponent::UCameraMovementComponent()
 	, UnPitchLerpTime(0.f)
 	, UnPitchLerpTimeMax(0.f)
 	, PrevUnPitch(0.f)
+	, SlidePoseLerpTime(0.f)
+	, SlidePoseLerpTimeMax(0.f)
+	, SlidePoseStart(0.f)
+	, SlidePoseEnd(0.f)
+	, PrevSlidePose(0.f)
 	, bIsPitchActive(false)
 	, bIsUnPitchActive(false)
 	, bNeedsUnroll(false)
@@ -84,12 +90,6 @@ void UCameraMovementComponent::BeginPlay()
 	// Land Dip setup
 	if (LandedFromAirDipCuve)
 	{
-		UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftPlayerCharacter->GetMovementComponent());
-		if (!deftCharacterMovementComponent)
-			UE_LOG(LogTemp, Error, TEXT("Failed to get DeftCharacterMovementComponent"));
-
-		deftCharacterMovementComponent->OnLandedFromAir.AddUObject(this, &UCameraMovementComponent::OnLandedFromAir);
-
 		float unusedMin;
 		LandedFromAirDipCuve->GetTimeRange(unusedMin, DipLerpTimeMax);
 	}
@@ -101,6 +101,22 @@ void UCameraMovementComponent::BeginPlay()
 	PitchStart = 0.f;
 	PitchEnd = 2.f;
 	UnPitchLerpTimeMax = 0.15f;
+
+	// listeners setup
+	UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftPlayerCharacter->GetMovementComponent());
+	if (!deftCharacterMovementComponent)
+		UE_LOG(LogTemp, Error, TEXT("Failed to get DeftCharacterMovementComponent"));
+
+	deftCharacterMovementComponent->OnLandedFromAir.AddUObject(this, &UCameraMovementComponent::OnLandedFromAir);
+	deftCharacterMovementComponent->OnSlideActionOccured.AddUObject(this, &UCameraMovementComponent::OnSlideActionOccured);
+
+	// Slide Pose setup
+	SlidePoseLerpTimeMax = 0.1f;
+	if (ACharacter* characterOwner = Cast<ACharacter>(GetOwner()))
+	{
+		SlidePoseStart = characterOwner->GetCapsuleComponent()->GetRelativeLocation().Z;//130
+		SlidePoseEnd = 42.f;
+	}
 }
 
 void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -111,6 +127,7 @@ void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	ProcessCameraRoll(DeltaTime);
 	ProcessCameraDip(DeltaTime);
 	ProcessCameraPitch(DeltaTime);
+	ProcessCameraSlidePose(DeltaTime);
 
 	PreviousInputVector = DeftPlayerCharacter->GetInputMoveVector();
 }
@@ -342,9 +359,76 @@ void UCameraMovementComponent::PreUnPitch()
 	PitchLerpTime = 0.f;
 }
 
+void UCameraMovementComponent::ProcessCameraSlidePose(float aDeltaTime)
+{
+	// quickly lerp camera either down or up based off whether we're sliding or not
+	if (!bIsSlidePoseActive && !bIsUnSlidePoseActive)
+		return;
+
+	if (!CameraTarget.IsValid())
+		return;
+
+	if (bIsSlidePoseActive || bIsUnSlidePoseActive)
+	{
+		SlidePoseLerpTime += aDeltaTime;
+		if (SlidePoseLerpTime > SlidePoseLerpTimeMax)
+		{
+			if (bIsSlidePoseActive)
+				return;
+
+			if (bIsUnSlidePoseActive)
+			{
+				// restored original pose 
+				SlidePoseLerpTime = 0.f;
+				bIsSlidePoseActive = false;
+				bIsUnSlidePoseActive = false;
+				return;
+			}
+		}
+
+		// TODO: This is a little messy, cleanup rather than having to do a buncha terinaries
+
+		// lerp!
+		const float percent = SlidePoseLerpTime / SlidePoseLerpTimeMax;
+		// lerp either moves camera from higher to lower (sliding) or lower to higher (done sliding)
+		const float newCameraZPos = bIsSlidePoseActive ? FMath::Lerp(SlidePoseStart, SlidePoseEnd, percent) : FMath::Lerp(SlidePoseEnd, SlidePoseStart, percent);
+		const float cameraZPosDelta = FMath::Abs(newCameraZPos - PrevSlidePose);
+
+		const FVector cameraLocation = CameraTarget->GetRelativeLocation();
+		const FVector destinationLocation = cameraLocation - FVector(0.f, 0.f, bIsSlidePoseActive ? cameraZPosDelta : -cameraZPosDelta);
+		CameraTarget->SetRelativeLocation(destinationLocation);
+
+		PrevSlidePose = newCameraZPos;
+	}
+}
+
+void UCameraMovementComponent::EnterSlidePose()
+{
+	SlidePoseLerpTime = 0.f;
+	PrevSlidePose = SlidePoseStart;
+	bIsSlidePoseActive = true;
+	bIsUnSlidePoseActive = false;
+}
+
+void UCameraMovementComponent::ExitSlidePose()
+{
+	SlidePoseLerpTime = 0.f;
+	PrevSlidePose = SlidePoseEnd;
+	bIsUnSlidePoseActive = true;
+	bIsSlidePoseActive = false;
+}
+
 void UCameraMovementComponent::OnLandedFromAir()
 {
 	bNeedsDip = true;
 	DipLerpTime = 0.f;
+}
+
+void UCameraMovementComponent::OnSlideActionOccured(bool aIsSlideActive)
+{
+	if (aIsSlideActive)
+		EnterSlidePose();
+	else
+		ExitSlidePose();
 }
 

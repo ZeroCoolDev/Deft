@@ -24,10 +24,10 @@ protected:
 	virtual void BeginPlay() override;
 
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bobble", meta=(DisplayName="Walk Bobble Curve"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Curves", meta=(DisplayName="Walk Bobble Curve"))
 	UCurveFloat* WalkBobbleCurve;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jump", meta=(DisplayName="Landed From Air Dip Curve"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Curves", meta=(DisplayName="Landed From Air Dip Curve"))
 	UCurveFloat* LandedFromAirDipCuve;
 
 private:
@@ -44,7 +44,12 @@ private:
 	void PrePitch();
 	void PreUnPitch();
 
+	void ProcessCameraSlidePose(float aDeltaTime);
+	void EnterSlidePose();
+	void ExitSlidePose();
+
 	void OnLandedFromAir();
+	void OnSlideActionOccured(bool aIsSlideActive);
 
 	TWeakObjectPtr<class ADeftPlayerCharacter> DeftPlayerCharacter;
 	TWeakObjectPtr<class USceneComponent> CameraTarget;
@@ -80,6 +85,15 @@ private:
 	float UnPitchLerpTime;
 	float UnPitchLerpTimeMax;
 	float PrevUnPitch;
+
+	float SlidePoseLerpTime;
+	float SlidePoseLerpTimeMax;
+	float SlidePoseStart;
+	float SlidePoseEnd;
+	float PrevSlidePose;
+
+	bool bIsSlidePoseActive;
+	bool bIsUnSlidePoseActive;
 
 	bool bIsPitchActive;
 	bool bIsUnPitchActive;

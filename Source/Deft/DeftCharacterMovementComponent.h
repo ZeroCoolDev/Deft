@@ -5,6 +5,7 @@
 #include "DeftCharacterMovementComponent.generated.h"
 
 DECLARE_MULTICAST_DELEGATE(FLandedFromAirDelegate);
+DECLARE_MULTICAST_DELEGATE_OneParam(FSlideActionOccurredDelegate, bool /*aIsSlidingActive*/);
 
 /**
  * 
@@ -17,6 +18,7 @@ public:
 	UDeftCharacterMovementComponent(const FObjectInitializer& ObjectInitializer);
 
 	FLandedFromAirDelegate OnLandedFromAir;
+	FSlideActionOccurredDelegate OnSlideActionOccured;
 
 	void DoSlide();
 

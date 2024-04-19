@@ -390,6 +390,8 @@ void UDeftCharacterMovementComponent::ProcessSliding(float aDeltaTime)
 	UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
 }
 
+// TODO: there is a bug where if you're walking into collision that you _can_ slide under, when you slide you'll be displaced horizontally 
+// as if it were an impassible wall instead of sliding under it
 void UDeftCharacterMovementComponent::DoSlide()
 {
 	// Only allow sliding while on the ground
@@ -422,34 +424,10 @@ void UDeftCharacterMovementComponent::DoSlide()
 
 
 	// shrink capsul
-	// TODO: (optional) would be neat to implement this ourselves use UCharacterMovementComponent::Crouch
-	// We have to manually move the capsul component to the floor since Crouch shrinks from both ends
 	CharacterOwner->Crouch();
 
-	//if (UCapsuleComponent* capsuleComponent = CharacterOwner->GetCapsuleComponent())
-	//{
-	//	const float capsuleOriginalHeight = capsuleComponent->GetUnscaledCapsuleHalfHeight();
-	//	capsuleComponent->SetCapsuleHalfHeight(capsuleOriginalHeight / 2.f);
+	OnSlideActionOccured.Broadcast(bIsSliding);
 
-	//	UpdatedComponent->MoveComponent(FVector(0.f, 0.f, )
-
-	//	const FVector capsulLoc = UpdatedComponent->GetComponentLocation();
-	//	FVector destinationLoc = capsulLoc - FVector(0.f, 0.f, 100.f);// magic number 100 is just to reliably sweep far enough to find _a_ floor
-	//	FFindFloorResult floorResult;
-	//	if (FindFloorBySweep(floorResult, capsulLoc, destinationLoc))
-	//	{
-	//		UE_LOG(LogTemp, Warning, TEXT("found floor"));
-	//		const float floorDistance = floorResult.GetDistanceToFloor();
-	//		destinationLoc = capsulLoc - FVector(0.f, 0.f, floorDistance);
-
-	//		FLatentActionInfo latentInfo;
-	//		latentInfo.CallbackTarget = this;
-	//		UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLoc, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
-	//	}
-	//}
-
-	// lower camera and angle left
-	// lock WASD movement
 	// TODO: add on screen trail effects
 }
 
@@ -469,7 +447,8 @@ void UDeftCharacterMovementComponent::StopSlide()
 	CharacterOwner->UnCrouch();
 
 	// restore camera and angle
-	// un-lock WASD movement
+	OnSlideActionOccured.Broadcast(bIsSliding);
+
 	// TODO: remove on screen trail effects
 }
 
