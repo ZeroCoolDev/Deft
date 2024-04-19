@@ -21,7 +21,6 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	const FVector2D& GetInputMoveVector() const { return InputMoveVector; }
-	void StopSlide();
 
 protected:
 	// Called when the game starts or when spawned

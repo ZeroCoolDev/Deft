@@ -45,14 +45,16 @@ private:
 	void PrePitch();
 	void PreUnPitch();
 
-	void ProcessCameraSlidePose(float aDeltaTime);
-	void EnterSlidePose();
-	void ExitSlidePose();
+	void ProcessCameraSlide(float aDeltaTime);
+	void EnterSlide();
+	void UnSlide();
+	void ExitSlide();
 
 	void OnLandedFromAir();
 	void OnSlideActionOccured(bool aIsSlideActive);
 
-	TWeakObjectPtr<class ADeftPlayerCharacter> DeftPlayerCharacter;
+	TWeakObjectPtr<class ADeftPlayerCharacter> DeftCharacter;
+	TWeakObjectPtr<class UDeftCharacterMovementComponent> DeftMovementComponent;
 	TWeakObjectPtr<class USceneComponent> CameraTarget;
 
 	FVector2D PreviousInputVector;
@@ -87,18 +89,18 @@ private:
 	float UnPitchLerpTimeMax;
 	float PrevUnPitch;
 
-	// SlidePose
-	float SlidePoseLerpTime;
-	float SlidePoseLerpTimeMax;
-	float SlidePoseStart;
-	float SlidePoseEnd;
-	float PrevSlidePose;
+	// Slide
+	float SlideZPosLerpTime;
+	float SlideZPosLerpTimeMax;
+	float SlideZPosStart;
+	float SlideZPosEnd;
+	float PrevSlideZPos;
 	// TODO: not stoked about this, but it allows code reuse so thats cool
-	float SlidePoseRollEndOverride;
-	float SlidePoseRollLerpTimeMaxOverride;
+	float SlideRollEndOverride;
+	float SlideRollLerpTimeMaxOverride;
 	
-	bool bIsSlidePoseActive;
-	bool bIsUnSlidePoseActive;
+	bool bIsSlideActive;
+	bool bIsUnSlideActive;
 
 	bool bIsPitchActive;
 	bool bIsUnPitchActive;

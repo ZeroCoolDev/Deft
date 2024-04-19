@@ -2,6 +2,7 @@
 
 #include "Components/CapsuleComponent.h"
 #include "DeftPlayerCharacter.h"
+#include "DeftLocks.h"
 #include "GameFramework/Character.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -394,12 +395,24 @@ void UDeftCharacterMovementComponent::ProcessSliding(float aDeltaTime)
 // as if it were an impassible wall instead of sliding under it
 void UDeftCharacterMovementComponent::DoSlide()
 {
+	// Don't allow sliding while currently sliding
+	if (bIsSliding)
+		return;
+
+	if (DeftLocks::IsSlideLocked())
+		return;
+
+	if (Velocity == FVector::ZeroVector)
+		return;
+
 	// Only allow sliding while on the ground
 	if (!IsMovingOnGround())
 	{
 		UE_LOG(LogTemp, Error, TEXT("Cannot slide because not moving on ground"));
 		return;
 	}
+
+	DeftLocks::IncrementInputLockRef();
 
 	SetMovementMode(MOVE_Flying);
 
@@ -427,7 +440,6 @@ void UDeftCharacterMovementComponent::DoSlide()
 	// set velocity to max speed so that the slide speed is constant 
 	Velocity = (Velocity.GetSafeNormal() * GetMaxSpeed());
 
-
 	// shrink capsul
 	CharacterOwner->Crouch();
 
@@ -440,8 +452,7 @@ void UDeftCharacterMovementComponent::StopSlide()
 {
 	UE_LOG(LogTemp, Log, TEXT("StopSlide!"));
 
-	if (ADeftPlayerCharacter* deftPlayerCharacter = Cast<ADeftPlayerCharacter>(CharacterOwner))
-		deftPlayerCharacter->StopSlide();
+	DeftLocks::DecrementInputLockRef();
 
 	SetMovementMode(MOVE_Walking);
 

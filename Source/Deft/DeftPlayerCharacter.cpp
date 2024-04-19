@@ -3,6 +3,7 @@
 #include "Camera/CameraComponent.h"
 #include "CameraMovementComponent.h"
 #include "DeftCharacterMovementComponent.h"
+#include "DeftLocks.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -74,7 +75,7 @@ bool ADeftPlayerCharacter::CanJumpInternal_Implementation() const
 
 void ADeftPlayerCharacter::Move(const FInputActionValue& aValue)
 {
-	if (bIsInputMoveLocked)
+	if (DeftLocks::IsInputLocked())//(bIsInputMoveLocked)
 	{
 		//UE_LOG(LogTemp, Error, TEXT("InputLocked but attempting to move! Cannot move with WASD"));
 		return;
@@ -111,15 +112,8 @@ void ADeftPlayerCharacter::Look(const FInputActionValue& aValue)
 
 void ADeftPlayerCharacter::Slide()
 {
-	bIsInputMoveLocked = true;
-
 	if (UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(GetCharacterMovement()))
 		deftCharacterMovementComponent->DoSlide();
-}
-
-void ADeftPlayerCharacter::StopSlide()
-{
-	bIsInputMoveLocked = false; //TODO: I saw a random bug where movement got locked when is shouldn't after doing a bunch of sequential jumps and slides
 }
 
 void ADeftPlayerCharacter::OnLandedBeginJumpDelay()

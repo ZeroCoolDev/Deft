@@ -2,6 +2,7 @@
 
 #include "DeftCharacterMovementComponent.h"
 #include "DeftPlayerCharacter.h"
+#include "DeftLocks.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -9,10 +10,12 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 //TODO: maybesplit this into 5 CameraMovementComponent classes: Bobble, Roll, Dip(Land), Pitch , Slide
+TAutoConsoleVariable<bool> CVar_StopRollOnSlide(TEXT("deft.slide.StopRollOnSlide"), true, TEXT("true = early return if sliding, false = ProcessRoll"));
 
 UCameraMovementComponent::UCameraMovementComponent()
 	: WalkBobbleCurve(nullptr)
-	, DeftPlayerCharacter(nullptr)
+	, DeftCharacter(nullptr)
+	, DeftMovementComponent(nullptr)
 	, CameraTarget(nullptr)
 	, PreviousInputVector(FVector2D::ZeroVector)
 	, WalkBobbleTime(0.f)
@@ -37,13 +40,13 @@ UCameraMovementComponent::UCameraMovementComponent()
 	, UnPitchLerpTime(0.f)
 	, UnPitchLerpTimeMax(0.f)
 	, PrevUnPitch(0.f)
-	, SlidePoseLerpTime(0.f)
-	, SlidePoseLerpTimeMax(0.f)
-	, SlidePoseStart(0.f)
-	, SlidePoseEnd(0.f)
-	, PrevSlidePose(0.f)
-	, SlidePoseRollEndOverride(0.f)
-	, SlidePoseRollLerpTimeMaxOverride(0.f)
+	, SlideZPosLerpTime(0.f)
+	, SlideZPosLerpTimeMax(0.f)
+	, SlideZPosStart(0.f)
+	, SlideZPosEnd(0.f)
+	, PrevSlideZPos(0.f)
+	, SlideRollEndOverride(0.f)
+	, SlideRollLerpTimeMaxOverride(0.f)
 	, bIsPitchActive(false)
 	, bIsUnPitchActive(false)
 	, bNeedsUnroll(false)
@@ -66,8 +69,8 @@ void UCameraMovementComponent::BeginPlay()
 
 	// ...
 
-	DeftPlayerCharacter = Cast<ADeftPlayerCharacter>(GetOwner());
-	if (!DeftPlayerCharacter.IsValid())
+	DeftCharacter = Cast<ADeftPlayerCharacter>(GetOwner());
+	if (!DeftCharacter.IsValid())
 		UE_LOG(LogTemp, Error, TEXT("Missing owner"));
 
 	// Bobble Setup
@@ -79,7 +82,7 @@ void UCameraMovementComponent::BeginPlay()
 	else
 		UE_LOG(LogTemp, Error, TEXT("Walk Bobble curve is invalid"));
 
-	CameraTarget = DeftPlayerCharacter->FindComponentByClass<USpringArmComponent>();
+	CameraTarget = DeftCharacter->FindComponentByClass<USpringArmComponent>();
 	if (!CameraTarget.IsValid())
 		UE_LOG(LogTemp, Error, TEXT("Failed to set CameraTarget!"));
 
@@ -105,35 +108,36 @@ void UCameraMovementComponent::BeginPlay()
 	UnPitchLerpTimeMax = 0.15f;
 
 	// listeners setup
-	UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftPlayerCharacter->GetMovementComponent());
-	if (!deftCharacterMovementComponent)
+	DeftMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftCharacter->GetMovementComponent());
+	if (DeftMovementComponent.IsValid())
+	{
+		DeftMovementComponent->OnLandedFromAir.AddUObject(this, &UCameraMovementComponent::OnLandedFromAir);
+		DeftMovementComponent->OnSlideActionOccured.AddUObject(this, &UCameraMovementComponent::OnSlideActionOccured);
+	}
+	else
 		UE_LOG(LogTemp, Error, TEXT("Failed to get DeftCharacterMovementComponent"));
 
-	deftCharacterMovementComponent->OnLandedFromAir.AddUObject(this, &UCameraMovementComponent::OnLandedFromAir);
-	deftCharacterMovementComponent->OnSlideActionOccured.AddUObject(this, &UCameraMovementComponent::OnSlideActionOccured);
-
 	// Slide Pose setup
-	SlidePoseLerpTimeMax = 0.15f;
-	SlidePoseRollEndOverride = 20.f;
-	SlidePoseRollLerpTimeMaxOverride = 0.3f;
-	if (ACharacter* characterOwner = Cast<ACharacter>(GetOwner()))
-	{
-		SlidePoseStart = characterOwner->GetCapsuleComponent()->GetRelativeLocation().Z;//130
-		SlidePoseEnd = 42.f;
-	}
+	SlideZPosLerpTimeMax = 0.15f;
+	SlideRollEndOverride = 20.f;
+	SlideRollLerpTimeMaxOverride = 0.15f;
+	SlideZPosStart = DeftCharacter->GetCapsuleComponent()->GetRelativeLocation().Z;
+	SlideZPosEnd = 42.f;
 }
 
 void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	ProcessCameraBobble(DeltaTime);
+	//ProcessCameraBobble(DeltaTime);
 	ProcessCameraRoll(DeltaTime);
 	ProcessCameraDip(DeltaTime);
 	ProcessCameraPitch(DeltaTime);
-	ProcessCameraSlidePose(DeltaTime);
+	ProcessCameraSlide(DeltaTime);
 
-	PreviousInputVector = DeftPlayerCharacter->GetInputMoveVector();
+	GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::Green, FString::Printf(TEXT("%.2f"), CameraTarget->GetRelativeLocation().Z));
+
+	PreviousInputVector = DeftCharacter->GetInputMoveVector();
 }
 
 void UCameraMovementComponent::ProcessCameraBobble(float aDeltaTime)
@@ -144,10 +148,10 @@ void UCameraMovementComponent::ProcessCameraBobble(float aDeltaTime)
 	if (!WalkBobbleCurve)
 		return;
 
-	if (!DeftPlayerCharacter->GetCharacterMovement()->IsMovingOnGround())
+	if (!DeftCharacter->GetCharacterMovement()->IsMovingOnGround())
 		return;
 
-	if (DeftPlayerCharacter->GetVelocity() == FVector::ZeroVector)
+	if (DeftCharacter->GetVelocity() == FVector::ZeroVector)
 		return;
 
 	if (!CameraTarget.IsValid())
@@ -174,8 +178,12 @@ void UCameraMovementComponent::ProcessCameraBobble(float aDeltaTime)
 
 void UCameraMovementComponent::ProcessCameraRoll(float aDeltaTime)
 {
+	// Slide hijacks roll so don't fight over who's rolling during slide
+	if (bIsSlideActive || bIsUnSlideActive)
+		return;
+
 	// Camera roll
-	const FVector2D& inputVector = DeftPlayerCharacter->GetInputMoveVector();
+	const FVector2D& inputVector = DeftCharacter->GetInputMoveVector();
 
 	const bool isLeaningRight = inputVector.X > 0;
 	const bool wasLeaningRight = PreviousInputVector.X > 0;
@@ -214,27 +222,32 @@ void UCameraMovementComponent::PreRoll()
 
 void UCameraMovementComponent::Roll(float aDeltaTime, bool aIsLeaningLeft)
 {
+	const float rollLerpMaxTime = bIsSlideActive ? SlideRollLerpTimeMaxOverride : RollLerpTimeMax;
+
 	RollLerpTime += aDeltaTime;
-	if (RollLerpTime > RollLerpTimeMax)
-		RollLerpTime = RollLerpTimeMax;
+	if (RollLerpTime > rollLerpMaxTime)
+		RollLerpTime = rollLerpMaxTime;
 	HighestRollTimeAchieved = RollLerpTime;
 
 	// lerp!
-	const float percent = RollLerpTime / RollLerpTimeMax;
-	float roll = FMath::Lerp(RollLerpStart, bIsSlidePoseActive ? SlidePoseRollEndOverride : RollLerpEnd, percent);
+	const float percent = RollLerpTime / rollLerpMaxTime;
+	float roll = FMath::Lerp(RollLerpStart, bIsSlideActive ? SlideRollEndOverride : RollLerpEnd, percent);
 	if (aIsLeaningLeft)
 		roll *= -1.f;
 
-	const FRotator rotation = DeftPlayerCharacter->GetController()->GetControlRotation();
+
+	const FRotator rotation = DeftCharacter->GetController()->GetControlRotation();
 	const FRotator newRotation(rotation.Pitch, rotation.Yaw, roll);
-	DeftPlayerCharacter->GetController()->SetControlRotation(newRotation);
+	DeftCharacter->GetController()->SetControlRotation(newRotation);
 }
 
 void UCameraMovementComponent::PreUnRoll(bool aWasLeaningLeft)
 {
+	const float rollLerpMaxTime = bIsUnSlideActive ? SlideRollLerpTimeMaxOverride : RollLerpTimeMax;
+
 	// Time to unroll is faster than rolling so need to map time from roll to unroll range
-	const float unrollLerpInRollRange = RollLerpTimeMax - HighestRollTimeAchieved;
-	UnrollLerpTime = (unrollLerpInRollRange / RollLerpTimeMax) * (bIsUnSlidePoseActive ? SlidePoseRollLerpTimeMaxOverride : UnrollLerpTimeMax);
+	const float unrollLerpInRollRange = rollLerpMaxTime - HighestRollTimeAchieved;
+	UnrollLerpTime = (unrollLerpInRollRange / rollLerpMaxTime) * (bIsUnSlideActive ? SlideRollLerpTimeMaxOverride : UnrollLerpTimeMax);
 
 	bUnrollFromLeft = aWasLeaningLeft;
 	RollLerpTime = 0.f; // reset roll lerp since we're unrolling so that the time isn't carried over to an different lean
@@ -245,7 +258,7 @@ void UCameraMovementComponent::PreUnRoll(bool aWasLeaningLeft)
 void UCameraMovementComponent::UnRoll(float aDeltaTime)
 {
 	UnrollLerpTime += aDeltaTime;
-	const float unrollLerpTime = bIsUnSlidePoseActive ? SlidePoseRollLerpTimeMaxOverride : UnrollLerpTimeMax;
+	const float unrollLerpTime = bIsUnSlideActive ? SlideRollLerpTimeMaxOverride : UnrollLerpTimeMax;
 	if (UnrollLerpTime > unrollLerpTime)
 	{
 		UnrollLerpTime = unrollLerpTime;
@@ -254,17 +267,18 @@ void UCameraMovementComponent::UnRoll(float aDeltaTime)
 
 	// lerp!
 	const float percent = UnrollLerpTime / unrollLerpTime;
-	float unroll = FMath::Lerp(bIsUnSlidePoseActive ? SlidePoseRollEndOverride : RollLerpEnd, RollLerpStart, percent);
+	float unroll = FMath::Lerp(bIsUnSlideActive ? SlideRollEndOverride : RollLerpEnd, RollLerpStart, percent);
 	if (bUnrollFromLeft)
 		unroll *= -1.f;
 
-	const FRotator rotation = DeftPlayerCharacter->GetController()->GetControlRotation();
+	const FRotator rotation = DeftCharacter->GetController()->GetControlRotation();
 	const FRotator newRotation(rotation.Pitch, rotation.Yaw, unroll);
-	DeftPlayerCharacter->GetController()->SetControlRotation(newRotation);
+	DeftCharacter->GetController()->SetControlRotation(newRotation);
 }
 
 void UCameraMovementComponent::ProcessCameraDip(float aDeltaTime)
 {
+	// TODO: this might have an bug if we enter sliding or jump again before the dip is complete?
 	if (!bNeedsDip)
 		return;
 
@@ -294,7 +308,7 @@ void UCameraMovementComponent::ProcessCameraDip(float aDeltaTime)
 
 void UCameraMovementComponent::ProcessCameraPitch(float aDeltaTime)
 {
-	const bool isBackwardsInput = DeftPlayerCharacter->GetInputMoveVector().Y < 0.f;
+	const bool isBackwardsInput = DeftCharacter->GetInputMoveVector().Y < 0.f;
 	const bool wasBackwardsInput = PreviousInputVector.Y < 0.f;
 
 	if (!isBackwardsInput && wasBackwardsInput)
@@ -315,7 +329,7 @@ void UCameraMovementComponent::ProcessCameraPitch(float aDeltaTime)
 		const float pitch = FMath::Lerp(PitchStart, PitchEnd, percent);
 		const float pitchDelta = FMath::Abs(PrevPitch - pitch);
 
-		DeftPlayerCharacter->AddControllerPitchInput(-pitchDelta);
+		DeftCharacter->AddControllerPitchInput(-pitchDelta);
 
 		PrevPitch = pitch;
 	}
@@ -332,7 +346,7 @@ void UCameraMovementComponent::ProcessCameraPitch(float aDeltaTime)
 		const float percent = UnPitchLerpTime / UnPitchLerpTimeMax;
 		float unPitch = FMath::Lerp(PitchEnd, PitchStart, percent);
 		const float unPitchDetlta = FMath::Abs(PrevUnPitch - unPitch);
-		DeftPlayerCharacter->AddControllerPitchInput(unPitchDetlta);
+		DeftCharacter->AddControllerPitchInput(unPitchDetlta);
 
 		PrevUnPitch = unPitch;
 	}
@@ -369,47 +383,17 @@ void UCameraMovementComponent::PreUnPitch()
 	PitchLerpTime = 0.f;
 }
 
-void UCameraMovementComponent::ProcessCameraSlidePose(float aDeltaTime)
+void UCameraMovementComponent::ProcessCameraSlide(float aDeltaTime)
 {
-	// quickly lerp camera either down or up based off whether we're sliding or not
-	if (!bIsSlidePoseActive && !bIsUnSlidePoseActive)
+	if (!bIsSlideActive && !bIsUnSlideActive)
 		return;
 
 	if (!CameraTarget.IsValid())
 		return;
 
-	if (bIsSlidePoseActive || bIsUnSlidePoseActive)
+	if (bIsSlideActive || bIsUnSlideActive)
 	{
-		SlidePoseLerpTime += aDeltaTime;
-		if (SlidePoseLerpTime > SlidePoseLerpTimeMax)
-		{
-			if (bIsSlidePoseActive)
-				return;
-
-			if (bIsUnSlidePoseActive)
-			{
-				// restored original pose 
-				SlidePoseLerpTime = 0.f;
-				bIsSlidePoseActive = false;
-				bIsUnSlidePoseActive = false;
-				return;
-			}
-		}
-
-		// TODO: This is a little messy, cleanup rather than having to do a buncha terinaries
-
-		// lerp!
-		const float percent = SlidePoseLerpTime / SlidePoseLerpTimeMax;
-		// lerp either moves camera from higher to lower (sliding) or lower to higher (done sliding)
-		const float newCameraZPos = bIsSlidePoseActive ? FMath::Lerp(SlidePoseStart, SlidePoseEnd, percent) : FMath::Lerp(SlidePoseEnd, SlidePoseStart, percent);
-		const float cameraZPosDelta = FMath::Abs(newCameraZPos - PrevSlidePose);
-		UE_LOG(LogTemp, Warning, TEXT("Z pos %.2f, delta %.2f"), newCameraZPos, cameraZPosDelta);
-
-		const FVector cameraLocation = CameraTarget->GetRelativeLocation();
-		const FVector destinationLocation = cameraLocation - FVector(0.f, 0.f, bIsSlidePoseActive ? cameraZPosDelta : -cameraZPosDelta);
-		CameraTarget->SetRelativeLocation(destinationLocation);
-
-		if (bIsSlidePoseActive)
+		if (bIsSlideActive)
 		{
 			constexpr bool isLeaningLeft = true;
 			Roll(aDeltaTime, isLeaningLeft);
@@ -417,29 +401,75 @@ void UCameraMovementComponent::ProcessCameraSlidePose(float aDeltaTime)
 		else
 			UnRoll(aDeltaTime);
 
-		PrevSlidePose = newCameraZPos;
+		const float prevSlideLerpTime = SlideZPosLerpTime;
+		SlideZPosLerpTime += aDeltaTime;
+		if (SlideZPosLerpTime > SlideZPosLerpTimeMax)
+		{
+			if (prevSlideLerpTime < SlideZPosLerpTimeMax)
+			{
+				// Last frame making sure we hit the max and min
+				SlideZPosLerpTime = SlideZPosLerpTimeMax;
+			}
+			else
+			{
+				if (bIsSlideActive)
+					return;
+
+				if (bIsUnSlideActive)
+				{
+					ExitSlide();
+					return;
+				}
+			}
+		}
+
+		// TODO: This is a little messy, cleanup rather than having to do a buncha terinaries
+
+		// lerp!
+		const float percent = SlideZPosLerpTime / SlideZPosLerpTimeMax;
+		// lerp either moves camera from higher to lower (sliding) or lower to higher (done sliding)
+		const float newCameraZPos = bIsSlideActive ? FMath::Lerp(SlideZPosStart, SlideZPosEnd, percent) : FMath::Lerp(SlideZPosEnd, SlideZPosStart, percent);
+		const float cameraZPosDelta = FMath::Abs(newCameraZPos - PrevSlideZPos);
+
+		const FVector cameraLocation = CameraTarget->GetRelativeLocation();
+		const FVector destinationLocation = cameraLocation - FVector(0.f, 0.f, bIsSlideActive ? cameraZPosDelta : -cameraZPosDelta);
+		CameraTarget->SetRelativeLocation(destinationLocation);
+
+		UE_LOG(LogTemp, Warning, TEXT("percent zPos %.2f: cam Z %.2f"), percent, CameraTarget->GetRelativeLocation().Z);
+		PrevSlideZPos = newCameraZPos;
 	}
 }
 
-void UCameraMovementComponent::EnterSlidePose()
+void UCameraMovementComponent::EnterSlide()
 {
-	SlidePoseLerpTime = 0.f;
-	PrevSlidePose = SlidePoseStart;
-	bIsSlidePoseActive = true;
-	bIsUnSlidePoseActive = false;
+	DeftLocks::IncrementSlideLockRef();
+
+	SlideZPosLerpTime = 0.f;
+	PrevSlideZPos = SlideZPosStart;
+	bIsSlideActive = true;
+	bIsUnSlideActive = false;
 
 	PreRoll();
 }
 
-void UCameraMovementComponent::ExitSlidePose()
+void UCameraMovementComponent::UnSlide()
 {
-	SlidePoseLerpTime = 0.f;
-	PrevSlidePose = SlidePoseEnd;
-	bIsUnSlidePoseActive = true;
-	bIsSlidePoseActive = false;
+	SlideZPosLerpTime = 0.f;
+	PrevSlideZPos = SlideZPosEnd;
+	bIsUnSlideActive = true;
+	bIsSlideActive = false;
 
 	constexpr bool wasLeaningLeft = true;
 	PreUnRoll(wasLeaningLeft);
+}
+
+void UCameraMovementComponent::ExitSlide()
+{
+	SlideZPosLerpTime = 0.f;
+	bIsSlideActive = false;
+	bIsUnSlideActive = false;
+
+	DeftLocks::DecrementSlideLockRef();
 }
 
 void UCameraMovementComponent::OnLandedFromAir()
@@ -451,8 +481,8 @@ void UCameraMovementComponent::OnLandedFromAir()
 void UCameraMovementComponent::OnSlideActionOccured(bool aIsSlideActive)
 {
 	if (aIsSlideActive)
-		EnterSlidePose();
+		EnterSlide();
 	else
-		ExitSlidePose();
+		UnSlide();
 }
 
