@@ -42,6 +42,8 @@ UCameraMovementComponent::UCameraMovementComponent()
 	, SlidePoseStart(0.f)
 	, SlidePoseEnd(0.f)
 	, PrevSlidePose(0.f)
+	, SlidePoseRollEndOverride(0.f)
+	, SlidePoseRollLerpTimeMaxOverride(0.f)
 	, bIsPitchActive(false)
 	, bIsUnPitchActive(false)
 	, bNeedsUnroll(false)
@@ -111,7 +113,9 @@ void UCameraMovementComponent::BeginPlay()
 	deftCharacterMovementComponent->OnSlideActionOccured.AddUObject(this, &UCameraMovementComponent::OnSlideActionOccured);
 
 	// Slide Pose setup
-	SlidePoseLerpTimeMax = 0.1f;
+	SlidePoseLerpTimeMax = 0.15f;
+	SlidePoseRollEndOverride = 20.f;
+	SlidePoseRollLerpTimeMaxOverride = 0.3f;
 	if (ACharacter* characterOwner = Cast<ACharacter>(GetOwner()))
 	{
 		SlidePoseStart = characterOwner->GetCapsuleComponent()->GetRelativeLocation().Z;//130
@@ -197,10 +201,15 @@ void UCameraMovementComponent::ProcessCameraRoll(float aDeltaTime)
 	else if (isLeaningRight || isLeaningLeft)
 	{
 		if (startedLeaningRight || startedLeaningLeft)
-			RollLerpTime = 0.f;
+			PreRoll();
 
 		Roll(aDeltaTime, isLeaningLeft);
 	}
+}
+
+void UCameraMovementComponent::PreRoll()
+{
+	RollLerpTime = 0.f;
 }
 
 void UCameraMovementComponent::Roll(float aDeltaTime, bool aIsLeaningLeft)
@@ -212,7 +221,7 @@ void UCameraMovementComponent::Roll(float aDeltaTime, bool aIsLeaningLeft)
 
 	// lerp!
 	const float percent = RollLerpTime / RollLerpTimeMax;
-	float roll = FMath::Lerp(RollLerpStart, RollLerpEnd, percent);
+	float roll = FMath::Lerp(RollLerpStart, bIsSlidePoseActive ? SlidePoseRollEndOverride : RollLerpEnd, percent);
 	if (aIsLeaningLeft)
 		roll *= -1.f;
 
@@ -225,7 +234,7 @@ void UCameraMovementComponent::PreUnRoll(bool aWasLeaningLeft)
 {
 	// Time to unroll is faster than rolling so need to map time from roll to unroll range
 	const float unrollLerpInRollRange = RollLerpTimeMax - HighestRollTimeAchieved;
-	UnrollLerpTime = (unrollLerpInRollRange / RollLerpTimeMax) * UnrollLerpTimeMax;
+	UnrollLerpTime = (unrollLerpInRollRange / RollLerpTimeMax) * (bIsUnSlidePoseActive ? SlidePoseRollLerpTimeMaxOverride : UnrollLerpTimeMax);
 
 	bUnrollFromLeft = aWasLeaningLeft;
 	RollLerpTime = 0.f; // reset roll lerp since we're unrolling so that the time isn't carried over to an different lean
@@ -236,15 +245,16 @@ void UCameraMovementComponent::PreUnRoll(bool aWasLeaningLeft)
 void UCameraMovementComponent::UnRoll(float aDeltaTime)
 {
 	UnrollLerpTime += aDeltaTime;
-	if (UnrollLerpTime > UnrollLerpTimeMax)
+	const float unrollLerpTime = bIsUnSlidePoseActive ? SlidePoseRollLerpTimeMaxOverride : UnrollLerpTimeMax;
+	if (UnrollLerpTime > unrollLerpTime)
 	{
-		UnrollLerpTime = UnrollLerpTimeMax;
+		UnrollLerpTime = unrollLerpTime;
 		bNeedsUnroll = false; // this is the last unroll frame we need
 	}
 
 	// lerp!
-	const float percent = UnrollLerpTime / UnrollLerpTimeMax;
-	float unroll = FMath::Lerp(RollLerpEnd, RollLerpStart, percent);
+	const float percent = UnrollLerpTime / unrollLerpTime;
+	float unroll = FMath::Lerp(bIsUnSlidePoseActive ? SlidePoseRollEndOverride : RollLerpEnd, RollLerpStart, percent);
 	if (bUnrollFromLeft)
 		unroll *= -1.f;
 
@@ -393,10 +403,19 @@ void UCameraMovementComponent::ProcessCameraSlidePose(float aDeltaTime)
 		// lerp either moves camera from higher to lower (sliding) or lower to higher (done sliding)
 		const float newCameraZPos = bIsSlidePoseActive ? FMath::Lerp(SlidePoseStart, SlidePoseEnd, percent) : FMath::Lerp(SlidePoseEnd, SlidePoseStart, percent);
 		const float cameraZPosDelta = FMath::Abs(newCameraZPos - PrevSlidePose);
+		UE_LOG(LogTemp, Warning, TEXT("Z pos %.2f, delta %.2f"), newCameraZPos, cameraZPosDelta);
 
 		const FVector cameraLocation = CameraTarget->GetRelativeLocation();
 		const FVector destinationLocation = cameraLocation - FVector(0.f, 0.f, bIsSlidePoseActive ? cameraZPosDelta : -cameraZPosDelta);
 		CameraTarget->SetRelativeLocation(destinationLocation);
+
+		if (bIsSlidePoseActive)
+		{
+			constexpr bool isLeaningLeft = true;
+			Roll(aDeltaTime, isLeaningLeft);
+		}
+		else
+			UnRoll(aDeltaTime);
 
 		PrevSlidePose = newCameraZPos;
 	}
@@ -408,6 +427,8 @@ void UCameraMovementComponent::EnterSlidePose()
 	PrevSlidePose = SlidePoseStart;
 	bIsSlidePoseActive = true;
 	bIsUnSlidePoseActive = false;
+
+	PreRoll();
 }
 
 void UCameraMovementComponent::ExitSlidePose()
@@ -416,6 +437,9 @@ void UCameraMovementComponent::ExitSlidePose()
 	PrevSlidePose = SlidePoseEnd;
 	bIsUnSlidePoseActive = true;
 	bIsSlidePoseActive = false;
+
+	constexpr bool wasLeaningLeft = true;
+	PreUnRoll(wasLeaningLeft);
 }
 
 void UCameraMovementComponent::OnLandedFromAir()

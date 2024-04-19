@@ -8,7 +8,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 
-//TODO: maybesplit this into 4 CameraMovementComponent classes: Bobble, Roll, Dip(Land), Pitch 
+//TODO: maybesplit this into 5 CameraMovementComponent classes: Bobble, Roll, Dip(Land), Pitch , Slide
 
 UCameraMovementComponent::UCameraMovementComponent()
 	: WalkBobbleCurve(nullptr)

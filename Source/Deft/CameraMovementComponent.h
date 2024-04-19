@@ -87,6 +87,7 @@ private:
 	float UnPitchLerpTimeMax;
 	float PrevUnPitch;
 
+	// SlidePose
 	float SlidePoseLerpTime;
 	float SlidePoseLerpTimeMax;
 	float SlidePoseStart;

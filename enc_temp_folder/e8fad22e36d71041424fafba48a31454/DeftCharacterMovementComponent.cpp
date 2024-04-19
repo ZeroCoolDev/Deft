@@ -410,12 +410,7 @@ void UDeftCharacterMovementComponent::DoSlide()
 
 	// min speed percent makes sure we can still slide even at very low velocities
 	const float minSpeedPercent = 0.5f;
-	float speedPercent = FMath::Max(minSpeedPercent , Velocity.Length() / GetMaxSpeed());
-
-	// Force backwards movement to be much less since sliding backwards is harder than forward
-	if (ADeftPlayerCharacter* deftPlayerCharacter = Cast<ADeftPlayerCharacter>(CharacterOwner))
-		if (deftPlayerCharacter->GetInputMoveVector().Y < 0.f)
-			speedPercent = minSpeedPercent;
+	const float speedPercent = FMath::Max(minSpeedPercent , Velocity.Length() / GetMaxSpeed());
 
 	// Determines how far into the slide curve to start inverse proportional to speed, meaning:
 	// Max Speed = Max Slide length, 50% speed = 50% slide length. slower speeds when entering slide results in shorter slide duration

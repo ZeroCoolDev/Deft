@@ -34,6 +34,7 @@ private:
 	void ProcessCameraBobble(float aDeltaTime);
 
 	void ProcessCameraRoll(float aDeltaTime);
+	void PreRoll();
 	void Roll(float aDeltaTime, bool aIsLeaningLeft);
 	void PreUnRoll(bool aWasLeaningLeft);
 	void UnRoll(float aDeltaTime);
@@ -91,7 +92,10 @@ private:
 	float SlidePoseStart;
 	float SlidePoseEnd;
 	float PrevSlidePose;
-
+	// TODO: not stoked about this, but it allows code reuse so thats cool
+	float SlidePoseRollEndOverride;
+	float SlidePoseRollLerpTimeMaxOverride;
+	
 	bool bIsSlidePoseActive;
 	bool bIsUnSlidePoseActive;
 
