@@ -30,6 +30,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Curves", meta=(DisplayName="Landed From Air Dip Curve"))
 	UCurveFloat* LandedFromAirDipCuve;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
+	float DefaultCameraRelativeZPosition;
+
 private:
 	void ProcessCameraBobble(float aDeltaTime);
 
@@ -63,6 +66,7 @@ private:
 	float WalkBobbleTime;
 	float WalkBobbleMaxTime;
 	float PrevWalkBobbleVal;
+	float WalkBobbleDelta;
 
 	// Roll/Unroll
 	float RollLerpTimeMax;

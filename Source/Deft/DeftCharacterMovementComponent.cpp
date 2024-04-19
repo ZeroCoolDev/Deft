@@ -450,8 +450,6 @@ void UDeftCharacterMovementComponent::DoSlide()
 
 void UDeftCharacterMovementComponent::StopSlide()
 {
-	UE_LOG(LogTemp, Log, TEXT("StopSlide!"));
-
 	DeftLocks::DecrementInputLockRef();
 
 	SetMovementMode(MOVE_Walking);

@@ -20,6 +20,7 @@ TAutoConsoleVariable<bool> CVar_EnableSlide(TEXT("deft.camreafeatures.enable.Sli
 UCameraMovementComponent::UCameraMovementComponent()
 	: WalkBobbleCurve(nullptr)
 	, DeftCharacter(nullptr)
+	, DefaultCameraRelativeZPosition(0.f)
 	, DeftMovementComponent(nullptr)
 	, CameraTarget(nullptr)
 	, PreviousInputVector(FVector2D::ZeroVector)
@@ -92,6 +93,8 @@ void UCameraMovementComponent::BeginPlay()
 	if (!CameraTarget.IsValid())
 		UE_LOG(LogTemp, Error, TEXT("Failed to set CameraTarget!"));
 
+	DefaultCameraRelativeZPosition = CameraTarget->GetRelativeLocation().Z;
+
 	// Roll Setup
 	RollLerpTimeMax = 0.3f;
 	RollLerpStart = 0.f;
@@ -153,16 +156,7 @@ void UCameraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 
 void UCameraMovementComponent::ProcessCameraBobble(float aDeltaTime)
 {
-	if (bNeedsDip) // don't play dip and bobble at the same time otherwise they fight eachtoher
-		return;
-
 	if (!WalkBobbleCurve)
-		return;
-
-	if (!DeftCharacter->GetCharacterMovement()->IsMovingOnGround())
-		return;
-
-	if (DeftCharacter->GetVelocity() == FVector::ZeroVector)
 		return;
 
 	if (!CameraTarget.IsValid())
@@ -171,19 +165,38 @@ void UCameraMovementComponent::ProcessCameraBobble(float aDeltaTime)
 	if (WalkBobbleTime >= WalkBobbleMaxTime)
 		WalkBobbleTime = 0.f;
 
-	WalkBobbleTime += aDeltaTime;
-	if (WalkBobbleTime <= WalkBobbleMaxTime)
+	const bool shouldStopBobble = bNeedsDip ||
+		!DeftCharacter->GetCharacterMovement()->IsMovingOnGround() ||
+		DeftCharacter->GetVelocity() == FVector::ZeroVector;
+
+	if (shouldStopBobble)
 	{
-		const float bobbleCurveVal = WalkBobbleCurve->GetFloatValue(WalkBobbleTime);
-		const float bobbleCurveValDelta = bobbleCurveVal - PrevWalkBobbleVal;
-
-		PrevWalkBobbleVal = bobbleCurveVal;
-
-		const FVector cameraLocation = CameraTarget->GetRelativeLocation();
-		const FVector newLocation = cameraLocation - FVector(0.f, 0.f, bobbleCurveValDelta);
-
-		CameraTarget->SetRelativeLocation(newLocation, false, nullptr, ETeleportType::TeleportPhysics);
+		// Only stop bobble on a completed cycle (i.e. camera position is restored fully) otherwise let it continue this last cycle
+		if (WalkBobbleTime == 0.f)
+		{
+			return;
+		}
+		else if (WalkBobbleTime < WalkBobbleMaxTime / 2.f)
+		{
+			// We were on the ascent (since apex is exact middle of MaxTime)
+			// find corresponding descent time so we just "undo" whatever bobble has happened instead of played an entire cycle (which looks bad)
+			// Ex:
+			// ascent time = 0.15,	max = 0.4 ==> descent time = 0.25
+			// ascent time = 0.078,	max = 0.4 ==> descent time = 0.322
+			WalkBobbleTime = WalkBobbleMaxTime - WalkBobbleTime;
+		}
 	}
+
+	WalkBobbleTime += aDeltaTime;
+	const float bobbleCurveVal = WalkBobbleCurve->GetFloatValue(WalkBobbleTime);
+	const float bobbleCurveValDelta = bobbleCurveVal - PrevWalkBobbleVal;
+
+	PrevWalkBobbleVal = bobbleCurveVal;
+
+	const FVector cameraLocation = CameraTarget->GetRelativeLocation();
+	const FVector newLocation = cameraLocation - FVector(0.f, 0.f, bobbleCurveValDelta);
+
+	CameraTarget->SetRelativeLocation(newLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
 }
 
@@ -453,7 +466,6 @@ void UCameraMovementComponent::ProcessCameraSlide(float aDeltaTime)
 		const FVector destinationLocation = cameraLocation - FVector(0.f, 0.f, bIsSlideActive ? cameraZPosDelta : -cameraZPosDelta);
 		CameraTarget->SetRelativeLocation(destinationLocation);
 
-		UE_LOG(LogTemp, Warning, TEXT("%.2f%%:, lerpRes %.2f, cam src->dest %.2f -> %.2f"), percent, newCameraZPos, cameraLocation.Z, destinationLocation.Z);
 		PrevSlideZPos = newCameraZPos;
 	}
 }
