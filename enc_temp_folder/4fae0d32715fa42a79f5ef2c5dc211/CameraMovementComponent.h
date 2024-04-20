@@ -66,6 +66,9 @@ private:
 	float WalkBobbleTime;
 	float WalkBobbleMaxTime;
 	float PrevWalkBobbleVal;
+#if !UE_BUILD_SHIPPING
+	bool bShouldStopBobble;
+#endif//!UE_BUILD_SHIPPING
 
 	// Roll/Unroll
 	float RollLerpTimeMax;
@@ -116,18 +119,18 @@ private:
 	
 #if !UE_BUILD_SHIPPING
 	void DrawDebug();
-
 	void DrawDebugBobble();
-	bool bShouldStopBobble;
+	/*
+		WalkBobbleCurve / WalkBobbleMaxTime
+		PrevWalkBobbleVal
+		any early bails
+		should early stop
 
-	void DrawDebugRoll();//TODO: add slide override
-	bool bIsLeaningLeft;
-	bool bIsLeaningRight;
-
-	void DrawDebugDip();
-	
-	void DrawDebugPitch();
-	
-	void DrawDebugSlide();
+		CameraTarget
+	*/
+	//void DrawRollDebug();
+	//void DrawDipDebug();
+	//void DrawPitchDebug();
+	//void DrawSlideDebug();
 #endif//!UE_BUILD_SHIPPING
 };

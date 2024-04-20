@@ -229,11 +229,6 @@ void UCameraMovementComponent::ProcessCameraRoll(float aDeltaTime)
 	const bool isLeaningLeft = inputVector.X < 0;
 	const bool wasLeaningLeft = PreviousInputVector.X < 0;
 
-#if !UE_BUILD_SHIPPING
-	bIsLeaningLeft = isLeaningLeft;
-	bIsLeaningRight = isLeaningRight;
-#endif//!UE_BUILD_SHIPPING
-
 	const bool startedLeaningRight = isLeaningRight && !wasLeaningRight;
 	const bool stoppedLeaningRight = wasLeaningRight && !isLeaningRight;
 	
@@ -277,6 +272,7 @@ void UCameraMovementComponent::Roll(float aDeltaTime, bool aIsLeaningLeft)
 	float roll = FMath::Lerp(RollLerpStart, bIsSlideActive ? SlideRollEndOverride : RollLerpEnd, percent);
 	if (aIsLeaningLeft)
 		roll *= -1.f;
+
 
 	const FRotator rotation = DeftCharacter->GetController()->GetControlRotation();
 	const FRotator newRotation(rotation.Pitch, rotation.Yaw, roll);
@@ -366,15 +362,10 @@ void UCameraMovementComponent::ProcessCameraPitch(float aDeltaTime)
 
 	if (bIsPitchActive)
 	{
-		const float prevPitchLerpTime = PitchLerpTime;
 		PitchLerpTime += aDeltaTime;
+		// once we reach the end of the lerp cease adding pitch
 		if (PitchLerpTime > PitchLerpTimeMax)
-		{
-			if (prevPitchLerpTime < PitchLerpTimeMax)
-				PitchLerpTime = PitchLerpTimeMax; // Last frame of pitch add needed to make sure we hit the max and min
-			else
-				return; // cease adding pitch, but don't disable yet because player is still moving backwards
-		}
+			return;
 		HighestTiltTimeAchieved = PitchLerpTime;
 
 		// lerp!
@@ -557,103 +548,29 @@ void UCameraMovementComponent::DrawDebug()
 		, DeftCharacter->GetVelocity().Length());
 
 	FString cameraDebug;
-	cameraDebug += FString::Printf(TEXT("\n-Camera-\n\tZ Height: %.2f\n\tRotation: %s")
+	cameraDebug += FString::Printf(TEXT("-Camera-\n\tZ Height: %.2f\n\tRotation: %s")
 		, CameraTarget->GetRelativeLocation().Z
 		, *DeftCharacter->GetController()->GetControlRotation().ToString());
 
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, *movementDebug, false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, *cameraDebug, false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, *movementDebug);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, *cameraDebug);
 	}
 
 	if (CVar_DebugBobble.GetValueOnGameThread())
 		DrawDebugBobble();
-	if (CVar_DebugRoll.GetValueOnGameThread())
-		DrawDebugRoll();
-	if (CVar_DebugDip.GetValueOnGameThread())
-		DrawDebugDip();
-	if (CVar_DebugPitch.GetValueOnGameThread())
-		DrawDebugPitch();
-	if (CVar_DebugSlide.GetValueOnGameThread())
-		DrawDebugSlide();
 }
 
 void UCameraMovementComponent::DrawDebugBobble()
 {
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bShouldStopBobble ? FColor::Red : FColor::Green, FString::Printf(TEXT("\n-Bobble-\n\tLerp: %.2f / %.2f")
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bShouldStopBobble ? FColor::Red : FColor::Green, FString::Printf(TEXT("-Bobble-\n\tLerp: %.2f\n\tLerp Max: %.2f\n\tActive: %d")
 			, WalkBobbleTime
-			, WalkBobbleMaxTime), false);
+			, WalkBobbleMaxTime
+			, bShouldStopBobble), false);
 	}
-}
-
-void UCameraMovementComponent::DrawDebugRoll()
-{
-	if (GEngine)
-	{
-		const FString roll = FString::Printf(TEXT("\tRolling: %.2f / %.2f\n\tFarthest Roll Time: %.2f\n\tRoll Range [%.2f, %.2f]")
-			, RollLerpTime
-			, RollLerpTimeMax
-			, HighestRollTimeAchieved
-			, RollLerpStart
-			, RollLerpEnd);
-
-		const FString unroll = FString::Printf(TEXT("\tUnrolling: %.2f / %.2f\n\tUnroll Range [%.2f, %.2f]")
-			, UnrollLerpTime
-			, UnrollLerpTimeMax
-			, RollLerpEnd
-			, RollLerpStart);
-
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, (bIsLeaningLeft || bIsLeaningRight || bNeedsUnroll) ? FColor::Green : FColor::White, FString::Printf(TEXT("\n-Lean-")), false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, (bIsLeaningLeft || bIsLeaningRight) ? FColor::Cyan : (bNeedsUnroll ? FColor::Magenta : FColor::White), FString::Printf(TEXT("\tRot. Roll: %.2f"), DeftCharacter->GetController()->GetControlRotation().Roll), false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, (bIsLeaningLeft || bIsLeaningRight) ? FColor::Cyan : FColor::Red, *roll, false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bNeedsUnroll ? FColor::Magenta : FColor::Red, *unroll, false);
-	}
-}
-
-void UCameraMovementComponent::DrawDebugDip()
-{
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bNeedsDip ? FColor::Green : FColor::Red, FString::Printf(TEXT("\n-Dip-\n\tLerp: %.2f / %.2f")
-			, DipLerpTime
-			, DipLerpTimeMax), false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, FString::Printf(TEXT("\tCam Z Origin: %.2f"), DefaultCameraRelativeZPosition), false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bNeedsDip ? FColor::Green : FColor::Red, FString::Printf(TEXT("\tCam Z delta: %.2f\n\tCam Z Pos: %.2f")
-			, FMath::Abs(DefaultCameraRelativeZPosition - CameraTarget->GetRelativeLocation().Z)
-			, CameraTarget->GetRelativeLocation().Z), false);
-	}
-}
-
-void UCameraMovementComponent::DrawDebugPitch()
-{
-	if (GEngine)
-	{
-		const FString pitch = FString::Printf(TEXT("\tTilting: %.2f / %.2f\n\tFarthest Tilt Time: %.2f\n\tTilt Range [%.2f, %.2f]")
-			, PitchLerpTime
-			, PitchLerpTimeMax
-			, HighestTiltTimeAchieved
-			, PitchStart
-			, PitchEnd);
-
-		const FString unpitch = FString::Printf(TEXT("\tUntilting: %.2f / %.2f\n\tUntilt Range [%.2f, %.2f]")
-			, UnPitchLerpTime
-			, UnPitchLerpTimeMax
-			, PitchEnd
-			, PitchStart);
-
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsPitchActive || bIsUnPitchActive ? FColor::Green : FColor::White, FString::Printf(TEXT("\n-Tilt-")), false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsPitchActive ? FColor::Cyan : (bIsUnPitchActive ? FColor::Magenta : FColor::White), FString::Printf(TEXT("\tRot. Pitch: %.2f"), DeftCharacter->GetController()->GetControlRotation().Pitch), false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsPitchActive ? FColor::Cyan : FColor::Red, *pitch, false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsUnPitchActive ? FColor::Magenta : FColor::Red, *unpitch, false);
-	}
-}
-
-void UCameraMovementComponent::DrawDebugSlide()
-{
-	//TODO: finish later
 }
 
 #endif//!UE_BUILD_SHIPPING
