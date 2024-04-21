@@ -148,10 +148,6 @@ bool UDeftCharacterMovementComponent::IsFalling() const
 	if (!IsJumpCurveEnabled())
 		return Super::IsFalling();
 #endif
-	// note: This causes horizontal collisions to break when jumping or falling into collision
-	// TODO: investigate cause, my assumption is that the engine is colliding which puts us into MOVE_Walking, then it sees it's IsFalling() (because of our override)
-	// and puts us in MOVE_Falling, and the cycle repeats
-	// Can be investigated
 	return Super::IsFalling() || bIsJumping || bIsFalling;
 }
 
@@ -174,14 +170,6 @@ void UDeftCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previo
 
 	if (MovementMode == MOVE_Flying)
 		bCrouchMaintainsBaseLocation = true;
-}
-
-bool UDeftCharacterMovementComponent::CanStepUp(const FHitResult& Hit) const
-{
-	if (bIsJumping || bIsFalling)
-		return false;
-
-	return Super::CanStepUp(Hit);
 }
 
 void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
@@ -243,8 +231,6 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 				// Take character to a safe location where its not hitting roof
 				// TODO: this can be improved by using the impact location and using that
 				destinationLocation = actorLocation;
-
-				DrawDebugCapsule(GetWorld(), destinationLocation, capsulComponent->GetScaledCapsuleHalfHeight(), capsulComponent->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::White, false, 5.f);
 			}
 
 #if !UE_BUILD_SHIPPING
@@ -270,8 +256,6 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 				bIsJumping = false;
 				CharacterOwner->StopJumping();
 				landedOnFloor = true;
-
-				DrawDebugCapsule(GetWorld(), destinationLocation, CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::Green, false, 5.f);
 			}
 		}
 
@@ -279,7 +263,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 		FLatentActionInfo latentInfo;
 		latentInfo.CallbackTarget = this;
 		UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Type::Move, latentInfo);
-		UE_LOG(LogTemp, Log, TEXT("jump delta %.2f, origin -> destination: %.2f -> %.2f"), FMath::Abs(GetActorLocation().Z - destinationLocation.Z), GetActorLocation().Z, destinationLocation.Z);
+
 		// Notifying for animation support. Nothing in code is actively using this atm
 		if (isJumpApexReached && bNotifyApex)
 			NotifyJumpApex();
@@ -306,14 +290,10 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 		{
 			SetMovementMode(MOVE_Walking);
 			OnLandedFromAir.Broadcast();
-
-			//UE_LOG(LogTemp, Warning, TEXT("finished jump last frame - floor Collision"));
 		}
 		else
-		{
-			//UE_LOG(LogTemp, Warning, TEXT("finished jump last frame - falling mode"));
 			SetCustomFallingMode();
-		}
+
 
 		CharacterOwner->StopJumping();
 
@@ -357,8 +337,6 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 
 			SetMovementMode(MOVE_Walking);
 			landedOnFloor = true;
-
-			DrawDebugCapsule(GetWorld(), destinationLocation, CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::Yellow, false, 5.f);
 		}
 
 		FLatentActionInfo latentInfo;
@@ -379,7 +357,6 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 			return;
 #endif
 
-		//UE_LOG(LogTemp, Warning, TEXT("UE MOVE_Falling"));
 		SetCustomFallingMode();
 	}
 }

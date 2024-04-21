@@ -26,26 +26,11 @@ protected:
 	void BeginPlay() override;
 	void TickComponent(float aDeltaTime, enum ELevelTick aTickType, FActorComponentTickFunction* aThisTickFunction) override;
 
-	// Override Reason: Custom jump logic using curves and not gravity x velocity
 	bool DoJump(bool bReplayingMoves) override;
-
-	// Override Reason: default engine IsFalling() for animation reasons since we logically are in MOVE_Flying during any Jump or Fall however animations may need to know if we're falling
 	bool IsFalling() const override;
-
-	// Override Reason: We want to allow jumping while sliding
 	bool CanAttemptJump() const override;
-
-	// Override reason: Slide puts us in MOVE_Flying which is excluded from crouch allowance, so we need to check if we're sliding
 	bool CanCrouchInCurrentState() const override;
-
-	// Override reason: Forcing crouch to maintain base location while in MOVE_Flying since that's our custom slide and we want the capsule to stay at ground level
-	// otherwise base UE implementation sets bCrouchMaintainsBaseLocation = false whenever we're MOVE_Flying
 	void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
-	
-	// Override reason: This will trigger during jumping/falling with horizontal collision and cause a bug
-	// overriding to exclude step-up checks while jumping or falling.
-	// (context) Step-Up is for small collisions in the velocity direction which allows automatic traversal "up" the "step" (think shallow stairs)
-	bool CanStepUp(const FHitResult& Hit) const;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Jump Curve"))
 	UCurveFloat* JumpCurve;

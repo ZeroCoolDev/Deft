@@ -10,8 +10,6 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 //TODO: maybesplit this into 5 CameraMovementComponent classes: Bobble, Roll, Dip(Land), Pitch , Slide
-TAutoConsoleVariable<bool> CVar_DebugEnable(TEXT("deft.debug"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
-
 TAutoConsoleVariable<bool> CVar_EnableBobble(TEXT("deft.camreafeatures.enable.Bobble"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
 TAutoConsoleVariable<bool> CVar_DebugBobble(TEXT("deft.camreafeatures.debug.Bobble"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
 
@@ -552,9 +550,6 @@ void UCameraMovementComponent::OnSlideActionOccured(bool aIsSlideActive)
 #if !UE_BUILD_SHIPPING
 void UCameraMovementComponent::DrawDebug()
 {
-	if (!CVar_DebugEnable.GetValueOnGameThread())
-		return;
-
 	FString movementDebug;
 	movementDebug += FString::Printf(TEXT("-Movement-\n\tInput: %s\n\tPrev Input: %s\n\tSpeed: %.2f\n\tInput Locked: %d")
 		, *DeftCharacter->GetInputMoveVector().ToString()
