@@ -116,18 +116,14 @@ private:
 	
 #if !UE_BUILD_SHIPPING
 	void DrawDebug();
-
 	void DrawDebugBobble();
-	bool bShouldStopBobble;
-
-	void DrawDebugRoll();//TODO: add slide override
-	bool bIsLeaningLeft;
-	bool bIsLeaningRight;
-
+	void DrawDebugRoll();
 	void DrawDebugDip();
-	
 	void DrawDebugPitch();
-	
 	void DrawDebugSlide();
+
+	bool bIsLeaningRight;
+	bool bIsLeaningLeft;
+	bool bShouldStopBobble;
 #endif//!UE_BUILD_SHIPPING
 };

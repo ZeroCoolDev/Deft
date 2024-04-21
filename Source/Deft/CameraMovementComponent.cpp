@@ -551,10 +551,11 @@ void UCameraMovementComponent::OnSlideActionOccured(bool aIsSlideActive)
 void UCameraMovementComponent::DrawDebug()
 {
 	FString movementDebug;
-	movementDebug += FString::Printf(TEXT("-Movement-\n\tInput: %s\n\tPrev Input: %s\n\tSpeed: %.2f")
+	movementDebug += FString::Printf(TEXT("-Movement-\n\tInput: %s\n\tPrev Input: %s\n\tSpeed: %.2f\n\tInput Locked: %d")
 		, *DeftCharacter->GetInputMoveVector().ToString()
 		, *PreviousInputVector.ToString()
-		, DeftCharacter->GetVelocity().Length());
+		, DeftCharacter->GetVelocity().Length()
+		, DeftLocks::IsInputLocked());
 
 	FString cameraDebug;
 	cameraDebug += FString::Printf(TEXT("\n-Camera-\n\tZ Height: %.2f\n\tRotation: %s")
@@ -563,7 +564,7 @@ void UCameraMovementComponent::DrawDebug()
 
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, *movementDebug, false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, DeftLocks::IsInputLocked() ? FColor::Red : FColor::White, *movementDebug, false);
 		GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, *cameraDebug, false);
 	}
 
@@ -598,18 +599,18 @@ void UCameraMovementComponent::DrawDebugRoll()
 			, RollLerpTimeMax
 			, HighestRollTimeAchieved
 			, RollLerpStart
-			, RollLerpEnd);
+			, bIsUnSlideActive ? SlideRollEndOverride : RollLerpEnd);
 
 		const FString unroll = FString::Printf(TEXT("\tUnrolling: %.2f / %.2f\n\tUnroll Range [%.2f, %.2f]")
 			, UnrollLerpTime
 			, UnrollLerpTimeMax
-			, RollLerpEnd
+			, bIsUnSlideActive ? SlideRollEndOverride : RollLerpEnd
 			, RollLerpStart);
 
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, (bIsLeaningLeft || bIsLeaningRight || bNeedsUnroll) ? FColor::Green : FColor::White, FString::Printf(TEXT("\n-Lean-")), false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, (bIsLeaningLeft || bIsLeaningRight) ? FColor::Cyan : (bNeedsUnroll ? FColor::Magenta : FColor::White), FString::Printf(TEXT("\tRot. Roll: %.2f"), DeftCharacter->GetController()->GetControlRotation().Roll), false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, (bIsLeaningLeft || bIsLeaningRight) ? FColor::Cyan : FColor::Red, *roll, false);
-		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bNeedsUnroll ? FColor::Magenta : FColor::Red, *unroll, false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, (bIsSlideActive || bIsUnSlideActive) ? FColor::Yellow : (bIsLeaningLeft || bIsLeaningRight || bNeedsUnroll) ? FColor::Green : FColor::White, FString::Printf(TEXT("\n-Lean-")), false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, (bIsSlideActive || bIsUnSlideActive) ? FColor::Yellow : (bIsLeaningLeft || bIsLeaningRight) ? FColor::Cyan : (bNeedsUnroll ? FColor::Magenta : FColor::White), FString::Printf(TEXT("\tRot. Roll: %.2f"), DeftCharacter->GetController()->GetControlRotation().Roll), false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsSlideActive ? FColor::Yellow : (bIsLeaningLeft || bIsLeaningRight) ? FColor::Cyan : FColor::Red, *roll, false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsUnSlideActive ? FColor::Yellow : bNeedsUnroll ? FColor::Magenta : FColor::Red, *unroll, false);
 	}
 }
 
@@ -653,7 +654,30 @@ void UCameraMovementComponent::DrawDebugPitch()
 
 void UCameraMovementComponent::DrawDebugSlide()
 {
-	//TODO: finish later
+	if (GEngine)
+	{
+		const FString pitch = FString::Printf(TEXT("\tSliding: %.2f / %.2f\n\tFarthest Slide Time: %.2f\n\tSlide Range [%.2f, %.2f]")
+			, SlideZPosLerpTime
+			, SlideZPosLerpTimeMax
+			, HighestSlideZPosTimeAchieved
+			, SlideZPosStart
+			, SlideZPosEnd);
+
+		const FString unpitch = FString::Printf(TEXT("\tUnsliding: %.2f / %.2f\n\tUnslide Range [%.2f, %.2f]")
+			, PrevSlideZPos
+			, SlideZPosLerpTimeMax
+			, SlideZPosEnd
+			, SlideZPosStart);
+
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsSlideActive || bIsUnSlideActive ? FColor::Green : FColor::White, FString::Printf(TEXT("\n-Slide-")), false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, FString::Printf(TEXT("\tCam Z Origin: %.2f"), DefaultCameraRelativeZPosition), false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, (bIsSlideActive || bIsUnSlideActive) ? FColor::Green : FColor::Red, FString::Printf(TEXT("\tCam Z delta: %.2f\n\tCam Z Pos: %.2f")
+			, FMath::Abs(DefaultCameraRelativeZPosition - CameraTarget->GetRelativeLocation().Z)
+			, CameraTarget->GetRelativeLocation().Z), false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsSlideActive ? FColor::Cyan : (bIsUnSlideActive ? FColor::Magenta : FColor::White), FString::Printf(TEXT("\tRot. Roll: %.2f"), DeftCharacter->GetController()->GetControlRotation().Roll), false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsSlideActive ? FColor::Cyan : FColor::Red, *pitch, false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsUnSlideActive ? FColor::Magenta : FColor::Red, *unpitch, false);
+	}
 }
 
 #endif//!UE_BUILD_SHIPPING
