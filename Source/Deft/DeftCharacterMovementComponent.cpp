@@ -12,10 +12,12 @@ TAutoConsoleVariable<float> CVar_SetLoadPercent(TEXT("deft.slide.SetSlideStart")
 UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, JumpCurve(nullptr)
-	, FallCurve(nullptr)
+	, JumpFallCurve(nullptr)
 	, SlideCurve(nullptr)
+	, NonJumpFallCurve(nullptr)
 	, SlideDirection(FVector::ZeroVector)
 	, SlideJumpAdditive(FVector::ZeroVector)
+	, FallCurveToUse(nullptr)
 	, JumpTime(0.f)
 	, PrevJumpTime(0.f)
 	, JumpCurveStartTime(0.f)
@@ -62,8 +64,11 @@ void UDeftCharacterMovementComponent::BeginPlay()
 		UE_LOG(LogTemp, Error, TEXT("Missing Jump Curve"));
 
 
-	if (!FallCurve)
-		UE_LOG(LogTemp, Error, TEXT("Missing Fall Curve"));
+	if (!JumpFallCurve)
+		UE_LOG(LogTemp, Error, TEXT("Missing jump Fall Curve"));
+
+	if (!NonJumpFallCurve)
+		UE_LOG(LogTemp, Error, TEXT("Missing non-jump Fall Curve"));
 
 	if (SlideCurve)
 	{
@@ -186,6 +191,8 @@ bool UDeftCharacterMovementComponent::CanStepUp(const FHitResult& Hit) const
 
 void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 {
+	bWasJumpingLastFrame = bIsJumping;
+
 	if (!JumpCurve || !bIsJumping)
 		return;
 
@@ -279,7 +286,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 		FLatentActionInfo latentInfo;
 		latentInfo.CallbackTarget = this;
 		UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Type::Move, latentInfo);
-		UE_LOG(LogTemp, Log, TEXT("jump delta %.2f, origin -> destination: %.2f -> %.2f"), FMath::Abs(GetActorLocation().Z - destinationLocation.Z), GetActorLocation().Z, destinationLocation.Z);
+
 		// Notifying for animation support. Nothing in code is actively using this atm
 		if (isJumpApexReached && bNotifyApex)
 			NotifyJumpApex();
@@ -325,14 +332,17 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 
 void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 {
-	if (!FallCurve)
-		return;
-
 	if (bIsFalling)
 	{
+		if (!FallCurveToUse)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Missing FallCurveToUse!"));
+			return;
+		}
+
 		FallTime += aDeltaTime;
 
-		const float fallCurveVal = FallCurve->GetFloatValue(FallTime);
+		const float fallCurveVal = FallCurveToUse->GetFloatValue(FallTime);
 		const float fallCurveValDelta = fallCurveVal - PrevFallCurveVal;
 		PrevFallCurveVal = fallCurveVal;
 
@@ -497,6 +507,9 @@ void UDeftCharacterMovementComponent::SetCustomFallingMode()
 	FallTime = 0.f;
 	PrevFallCurveVal = 0.f;
 	Velocity.Z = 0.f;				// !important! so that velocity from jump doesn't get carried over to falling
+
+	FallCurveToUse = bWasJumpingLastFrame ? JumpFallCurve : NonJumpFallCurve;
+	UE_LOG(LogTemp, Warning, TEXT("bWasJumpingLastFrame: %d"), bWasJumpingLastFrame);
 
 	SetMovementMode(EMovementMode::MOVE_Flying);
 }

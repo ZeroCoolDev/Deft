@@ -50,8 +50,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Jump Curve"))
 	UCurveFloat* JumpCurve;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Fall Curve"))
-	UCurveFloat* FallCurve;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Jump Fall Curve"))
+	UCurveFloat* JumpFallCurve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Non Jump Fall Curve"))
+	UCurveFloat* NonJumpFallCurve;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Slide Curve"))
 	UCurveFloat* SlideCurve;
@@ -69,6 +72,8 @@ private:
 
 	FVector SlideDirection;
 	FVector SlideJumpAdditive;
+
+	UCurveFloat* FallCurveToUse;
 
 	// Jumping
 	float JumpTime;
@@ -92,6 +97,7 @@ private:
 	float SlideJumpSpeedModMax;
 
 	bool bIsJumping;
+	bool bWasJumpingLastFrame;
 	bool bIsValidJumpCurve;
 	bool bIsFalling;
 	bool bIsSliding;
