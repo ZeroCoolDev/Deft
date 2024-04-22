@@ -251,7 +251,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 				// TODO: this can be improved by using the impact location and using that
 				destinationLocation = actorLocation;
 
-				DrawDebugCapsule(GetWorld(), destinationLocation, capsulComponent->GetScaledCapsuleHalfHeight(), capsulComponent->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::White, false, 5.f);
+				//DrawDebugCapsule(GetWorld(), destinationLocation, capsulComponent->GetScaledCapsuleHalfHeight(), capsulComponent->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::White, false, 5.f);
 			}
 
 #if !UE_BUILD_SHIPPING
@@ -278,7 +278,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 				CharacterOwner->StopJumping();
 				landedOnFloor = true;
 
-				DrawDebugCapsule(GetWorld(), destinationLocation, CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::Green, false, 5.f);
+				//DrawDebugCapsule(GetWorld(), destinationLocation, CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::Green, false, 5.f);
 			}
 		}
 
@@ -368,7 +368,7 @@ void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 			SetMovementMode(MOVE_Walking);
 			landedOnFloor = true;
 
-			DrawDebugCapsule(GetWorld(), destinationLocation, CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::Yellow, false, 5.f);
+			//DrawDebugCapsule(GetWorld(), destinationLocation, CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::Yellow, false, 5.f);
 		}
 
 		FLatentActionInfo latentInfo;
@@ -509,7 +509,6 @@ void UDeftCharacterMovementComponent::SetCustomFallingMode()
 	Velocity.Z = 0.f;				// !important! so that velocity from jump doesn't get carried over to falling
 
 	FallCurveToUse = bWasJumpingLastFrame ? JumpFallCurve : NonJumpFallCurve;
-	UE_LOG(LogTemp, Warning, TEXT("bWasJumpingLastFrame: %d"), bWasJumpingLastFrame);
 
 	SetMovementMode(EMovementMode::MOVE_Flying);
 }

@@ -5,6 +5,8 @@
 #include "GameFramework/Character.h"
 #include "DeftPlayerCharacter.generated.h"
 
+DECLARE_MULTICAST_DELEGATE(FOnJumpInputPressedDelegate);
+
 UCLASS()
 class DEFT_API ADeftPlayerCharacter : public ACharacter
 {
@@ -21,6 +23,8 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	const FVector2D& GetInputMoveVector() const { return InputMoveVector; }
+
+	FOnJumpInputPressedDelegate OnJumpInputPressed;
 
 protected:
 	// Called when the game starts or when spawned
@@ -61,6 +65,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	class UCameraMovementComponent* CameraMovementComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Climbing)
+	class UClimbComponent* ClimbComponent;
 
 private:
 	FVector2D InputMoveVector;

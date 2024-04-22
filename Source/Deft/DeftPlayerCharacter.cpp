@@ -2,6 +2,7 @@
 
 #include "Camera/CameraComponent.h"
 #include "CameraMovementComponent.h"
+#include "ClimbComponent.h"
 #include "DeftCharacterMovementComponent.h"
 #include "DeftLocks.h"
 #include "EnhancedInputComponent.h"
@@ -45,6 +46,8 @@ ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectIniti
 	CameraComp->bUsePawnControlRotation = true;
 
 	CameraMovementComponent = CreateDefaultSubobject<UCameraMovementComponent>(TEXT("CameraMovementComponent"));
+
+	ClimbComponent = CreateDefaultSubobject<UClimbComponent>(TEXT("ClimbComponent"));
 }
 
 // Called when the game starts or when spawned
@@ -144,6 +147,8 @@ bool ADeftPlayerCharacter::CanBeginJump()
 // To fix this I think we may need to manually detect collision in a full 360 around the capsul then change the movement mode to Falling (our falling)
 void ADeftPlayerCharacter::BeginJumpProxy()
 {
+	OnJumpInputPressed.Broadcast();
+
 	// Default UE jump logic allows sequential jumps if the user holds down the jump button
 	// but I don't like that, so only allow a jump to be processed if they've released the previous
 	if (CanBeginJump())
