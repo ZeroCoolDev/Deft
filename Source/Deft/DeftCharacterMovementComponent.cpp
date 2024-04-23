@@ -7,14 +7,14 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 TAutoConsoleVariable<bool> CVar_UseEngineJump(TEXT("deft.jump.UseJumpCurve"), true, TEXT("true=use custom jump curve logic, false=use engine jump logic"), ECVF_Cheat);
-TAutoConsoleVariable<float> CVar_SetLoadPercent(TEXT("deft.slide.SetSlideStart"), 0.f, TEXT("set where in the slide curve slides should start"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugJump(TEXT("deft.debug.jump"), false, TEXT("draw debug for jumping"), ECVF_Cheat);
 
 UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, JumpCurve(nullptr)
 	, JumpFallCurve(nullptr)
-	, SlideCurve(nullptr)
 	, NonJumpFallCurve(nullptr)
+	, SlideCurve(nullptr)
 	, SlideDirection(FVector::ZeroVector)
 	, SlideJumpAdditive(FVector::ZeroVector)
 	, FallCurveToUse(nullptr)
@@ -94,6 +94,10 @@ void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELeve
 	ProcessJumping(aDeltaTime);
 	ProcessFalling(aDeltaTime);
 	ProcessSliding(aDeltaTime);
+
+#if !UE_BUILD_SHIPPING
+	DrawDebug();
+#endif //!UE_BUILD_SHIPPING
 }
 
 bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
@@ -238,20 +242,27 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 			const bool bIsBlockingHit = GetWorld()->SweepSingleByProfile(roofHitResult, actorLocation, destinationLocation, CharacterOwner->GetActorRotation().Quaternion(), capsulComponent->GetCollisionProfileName(), capsulShape, roofCheckCollisionParams);
 			if (bIsBlockingHit)
 			{
-				// Roof collision hit
-				SetCustomFallingMode();
+				// To be sure we actually hit a roof and not just intersected with an object due to slide + jump speed moving the component too far
+				// do another check only taking into account the destination's vertical location
+				const FVector destVertOnly = FVector(actorLocation.X, actorLocation.Y, destinationLocation.Z);
+				const bool bStillCollidedVertically = GetWorld()->SweepSingleByProfile(roofHitResult, actorLocation, destVertOnly, CharacterOwner->GetActorRotation().Quaternion(), capsulComponent->GetCollisionProfileName(), capsulShape, roofCheckCollisionParams);
 
-				bIsJumping = false;
-				CharacterOwner->StopJumping();
+				// Now we are confident we actually hit a roof
+				if (bStillCollidedVertically)
+				{
+					// Roof collision hit
+					SetCustomFallingMode();
 
-				// Reset vertical velocity to let gravity do the work
-				Velocity.Z = 0.f;
+					bIsJumping = false;
+					CharacterOwner->StopJumping();
 
-				// Take character to a safe location where its not hitting roof
-				// TODO: this can be improved by using the impact location and using that
-				destinationLocation = actorLocation;
+					// Reset vertical velocity to let gravity do the work
+					Velocity.Z = 0.f;
 
-				//DrawDebugCapsule(GetWorld(), destinationLocation, capsulComponent->GetScaledCapsuleHalfHeight(), capsulComponent->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::White, false, 5.f);
+					// Take character to a safe location where its not hitting roof
+					// TODO: this can be improved by using the impact location and using that
+					destinationLocation = actorLocation;
+				}
 			}
 
 #if !UE_BUILD_SHIPPING
@@ -277,8 +288,6 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 				bIsJumping = false;
 				CharacterOwner->StopJumping();
 				landedOnFloor = true;
-
-				//DrawDebugCapsule(GetWorld(), destinationLocation, CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleRadius(), CharacterOwner->GetActorRotation().Quaternion(), FColor::Green, false, 5.f);
 			}
 		}
 
@@ -508,7 +517,10 @@ void UDeftCharacterMovementComponent::SetCustomFallingMode()
 	PrevFallCurveVal = 0.f;
 	Velocity.Z = 0.f;				// !important! so that velocity from jump doesn't get carried over to falling
 
-	FallCurveToUse = bWasJumpingLastFrame ? JumpFallCurve : NonJumpFallCurve;
+	// hitting something while ascending on the jump is jarring if we use the JumpFall curve which is linear 
+	FallCurveToUse = NonJumpFallCurve;
+	if (bWasJumpingLastFrame && PrevJumpTime > JumpApexTime)
+		FallCurveToUse = JumpFallCurve;
 
 	SetMovementMode(EMovementMode::MOVE_Flying);
 }
@@ -653,4 +665,13 @@ bool UDeftCharacterMovementComponent::IsJumpCurveEnabled() const
 {
 	return CVar_UseEngineJump.GetValueOnGameThread();
 }
+
+void UDeftCharacterMovementComponent::DrawDebug()
+{
+	if (CVar_DebugJump.GetValueOnGameThread())
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::Cyan, FString::Printf(TEXT("bWasJumpingLastFrame %d, Fall Curve: %s"), bWasJumpingLastFrame, FallCurveToUse  ? *FallCurveToUse->GetName() : *FString("")));
+	}
+}
+
 #endif//UE_BUILD_SHIPPING

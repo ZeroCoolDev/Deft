@@ -552,25 +552,25 @@ void UCameraMovementComponent::OnSlideActionOccured(bool aIsSlideActive)
 #if !UE_BUILD_SHIPPING
 void UCameraMovementComponent::DrawDebug()
 {
-	if (CVar_DebugEnable.GetValueOnGameThread())
+	if (!CVar_DebugEnable.GetValueOnGameThread())
+		return;
+
+	FString movementDebug;
+	movementDebug += FString::Printf(TEXT("-Movement-\n\tInput: %s\n\tPrev Input: %s\n\tSpeed: %.2f\n\tInput Locked: %d")
+		, *DeftCharacter->GetInputMoveVector().ToString()
+		, *PreviousInputVector.ToString()
+		, DeftCharacter->GetVelocity().Length()
+		, DeftLocks::IsInputLocked());
+
+	FString cameraDebug;
+	cameraDebug += FString::Printf(TEXT("\n-Camera-\n\tZ Height: %.2f\n\tRotation: %s")
+		, CameraTarget->GetRelativeLocation().Z
+		, *DeftCharacter->GetController()->GetControlRotation().ToString());
+
+	if (GEngine)
 	{
-		FString movementDebug;
-		movementDebug += FString::Printf(TEXT("-Movement-\n\tInput: %s\n\tPrev Input: %s\n\tSpeed: %.2f\n\tInput Locked: %d")
-			, *DeftCharacter->GetInputMoveVector().ToString()
-			, *PreviousInputVector.ToString()
-			, DeftCharacter->GetVelocity().Length()
-			, DeftLocks::IsInputLocked());
-
-		FString cameraDebug;
-		cameraDebug += FString::Printf(TEXT("\n-Camera-\n\tZ Height: %.2f\n\tRotation: %s")
-			, CameraTarget->GetRelativeLocation().Z
-			, *DeftCharacter->GetController()->GetControlRotation().ToString());
-
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 0.005f, DeftLocks::IsInputLocked() ? FColor::Red : FColor::White, *movementDebug, false);
-			GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, *cameraDebug, false);
-		}
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, DeftLocks::IsInputLocked() ? FColor::Red : FColor::White, *movementDebug, false);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, *cameraDebug, false);
 	}
 
 	if (CVar_DebugBobble.GetValueOnGameThread())

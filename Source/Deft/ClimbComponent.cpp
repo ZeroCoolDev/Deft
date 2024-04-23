@@ -3,7 +3,7 @@
 #include "DeftPlayerCharacter.h"
 #include "GameFramework/SpringArmComponent.h"
 
-TAutoConsoleVariable<bool> CVar_DebugLedgeUp(TEXT("deft.debug.ledgeup"), true, TEXT("draw debugging for ledgeup"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugLedgeUp(TEXT("deft.debug.climb.ledgeup"), false, TEXT("draw debugging for ledgeup"), ECVF_Cheat);
 
 UClimbComponent::UClimbComponent()
 {

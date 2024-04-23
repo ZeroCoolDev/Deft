@@ -1,8 +1,9 @@
 #include "ClimbComponent.h"
 
 #include "DeftPlayerCharacter.h"
+#include "GameFramework/SpringArmComponent.h"
 
-TAutoConsoleVariable<bool> CVar_DebugLedgeUp(TEXT("deft.debug.ledgeup"), true, TEXT("draw debugging for ledgeup"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugLedgeUp(TEXT("deft.debug.climb.ledgeup"), true, TEXT("draw debugging for ledgeup"), ECVF_Cheat);
 
 UClimbComponent::UClimbComponent()
 {
@@ -30,7 +31,14 @@ void UClimbComponent::BeginPlay()
 	if (DeftCharacter.IsValid())
 	{
 		DeftCharacter->OnJumpInputPressed.AddUObject(this, &UClimbComponent::LedgeUp);
-		LedgeHeightMin = DeftCharacter->BaseEyeHeight;
+
+		if (USpringArmComponent* springArmComponent = DeftCharacter->FindComponentByClass<USpringArmComponent>())
+			LedgeHeightMin = springArmComponent->GetComponentLocation().Z - DeftCharacter->GetActorLocation().Z;
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("Failed finding the spring arm component, defaulting to UE eye height"));
+			LedgeHeightMin = DeftCharacter->BaseEyeHeight;
+		}
 	}
 	else
 		UE_LOG(LogTemp, Error, TEXT("Failed to find DeftPlayerCharacter!"));
@@ -53,7 +61,11 @@ void UClimbComponent::DrawDebug()
 	if (!CVar_DebugLedgeUp.GetValueOnGameThread())
 		return;
 
-	DrawDebugLine(GetWorld(), DeftCharacter->GetActorLocation() + FVector(0.f, 0.f, LedgeHeightMin), DeftCharacter->GetActorLocation() + (DeftCharacter->GetActorForwardVector() * 100.f), FColor::Yellow);
+	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::Yellow, FString::Printf(TEXT("Ledge Height %.2f, actor z %.2f"), LedgeHeightMin, DeftCharacter->GetActorLocation().Z));
+
+	const FVector lineStart = DeftCharacter->GetActorLocation() + FVector(0.f, 0.f, LedgeHeightMin);
+	const FVector lineEnd = lineStart + (DeftCharacter->GetActorForwardVector() * 100.f);
+	DrawDebugLine(GetWorld(), lineStart, lineEnd, FColor::Yellow);
 }
 #endif // !UE_BUILD_SHIPPING
 

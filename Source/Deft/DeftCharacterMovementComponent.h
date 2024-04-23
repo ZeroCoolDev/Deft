@@ -106,5 +106,6 @@ private:
 #if !UE_BUILD_SHIPPING
 	float JumpHeightApexTest = 0.f;
 	bool IsJumpCurveEnabled() const;
+	void DrawDebug();
 #endif// UE_BUILD_SHIPPING
 };
