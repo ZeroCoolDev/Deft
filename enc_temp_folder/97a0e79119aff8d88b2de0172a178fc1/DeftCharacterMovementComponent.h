@@ -22,10 +22,6 @@ public:
 
 	void DoSlide();
 
-	bool IsDeftJumping() const { return bIsJumping; }
-	bool IsDeftFalling() const { return bIsFalling; }
-	bool IsDeftSliding() const { return bIsSliding; }
-
 protected:
 	void BeginPlay() override;
 	void TickComponent(float aDeltaTime, enum ELevelTick aTickType, FActorComponentTickFunction* aThisTickFunction) override;

@@ -25,20 +25,11 @@ protected:
 	void LedgeUp();
 
 	TWeakObjectPtr<class ADeftPlayerCharacter> DeftCharacter;
-	TWeakObjectPtr<class UDeftCharacterMovementComponent> DeftMovementComponent;
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Ledge Up")
 	float LedgeHeightMin;
-	float LedgeWidthRequirement;
-	float LedgeReachDistance; // how far away we can be from a ledge for it to activate
 
 #if !UE_BUILD_SHIPPING
 	void DrawDebug();
-	void DrawDebugLedgeUp();
-
-	FVector Debug_LedgeTraceStart;
-	FVector Debug_LedgeTraceEnd;
-	FVector Debug_LedgeSurfaceTraceStart;
-	FVector Debug_LedgeSurfaceTraceEnd;
 #endif // !UE_BUILD_SHIPPING
 };

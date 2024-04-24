@@ -10,7 +10,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 //TODO: maybesplit this into 5 CameraMovementComponent classes: Bobble, Roll, Dip(Land), Pitch , Slide
-TAutoConsoleVariable<bool> CVar_DebugEnable(TEXT("deft.debug.camera"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugEnable(TEXT("deft.debug.camera"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
 
 TAutoConsoleVariable<bool> CVar_EnableBobble(TEXT("deft.enable.camera.Bobble"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
 TAutoConsoleVariable<bool> CVar_DebugBobble(TEXT("deft.camera.debug.Bobble"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
