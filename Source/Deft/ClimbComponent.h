@@ -24,10 +24,19 @@ protected:
 
 	void LedgeUp();
 
+private:
+	bool IsLedgeReachable();
+	bool IsLedgeWithinHeightRange(FVector& outHeightDistanceTraceEnd);
+	bool IsLedgeSurfaceWalkable(const FVector& aHeightDistanceTraceEnd, FHitResult& outSurfaceHit);
+	bool IsEnoughRoomOnLedge(const FHitResult& aSurfaceHit);
+
+	FCollisionQueryParams CollisionQueryParams;
+	FCollisionShape CapsuleCollisionShape;
+
 	TWeakObjectPtr<class ADeftPlayerCharacter> DeftCharacter;
 	TWeakObjectPtr<class UDeftCharacterMovementComponent> DeftMovementComponent;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Ledge Up")
+	float CapsuleRadius;
 	float LedgeHeightMin;
 	float LedgeWidthRequirement;
 	float LedgeReachDistance; // how far away we can be from a ledge for it to activate
@@ -36,9 +45,22 @@ protected:
 	void DrawDebug();
 	void DrawDebugLedgeUp();
 
-	FVector Debug_LedgeTraceStart;
-	FVector Debug_LedgeTraceEnd;
-	FVector Debug_LedgeSurfaceTraceStart;
-	FVector Debug_LedgeSurfaceTraceEnd;
+	bool Debug_LedgeReach;
+	FVector Debug_LedgeReachLoc;
+	FColor Debug_LedgeReachColor;
+
+	bool Debug_LedgeHeight;
+	FVector Debug_LedgeHeightStart;
+	FVector Debug_LedgeHeightEnd;
+	FColor Debug_LedgeHeightColor;
+	
+	bool Debug_LedgeSurface;
+	FVector Debug_LedgeSurfaceStart;
+	FVector Debug_LedgeSurfaceEnd;
+	FColor Debug_LedgeSurfaceColor;
+
+	bool Debug_LedgeWidth;
+	FVector Debug_LedgeWidthLoc;
+	FColor Debug_LedgeWidthColor;
 #endif // !UE_BUILD_SHIPPING
 };
