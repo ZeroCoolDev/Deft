@@ -56,6 +56,8 @@ private:
 	void OnLandedFromAir();
 	void OnSlideActionOccured(bool aIsSlideActive);
 
+	void OnClimbActionLedgeUp(bool aIsStarted);
+
 	TWeakObjectPtr<class ADeftPlayerCharacter> DeftCharacter;
 	TWeakObjectPtr<class UDeftCharacterMovementComponent> DeftMovementComponent;
 	TWeakObjectPtr<class USceneComponent> CameraTarget;
@@ -113,6 +115,8 @@ private:
 	bool bUnrollFromLeft;
 
 	bool bNeedsDip;
+
+	bool bIsLedgeUpActive;
 	
 #if !UE_BUILD_SHIPPING
 	void DrawDebug();

@@ -98,6 +98,7 @@ private:
 	float SlideTime;
 	float SlideCurveStartTime;
 	float SlideCurveMaxTime;
+	float PrevSlideCurveVal;
 	float SlideMinimumStartTime;		// (deprecated) Slide will default to a minimum duration if velocity is very low (i.e. player barely taps a direction and slides)
 	float SlideJumpSpeedMod;			// Jump Speed modifier based off slide speed to give the player a longer jump during slide
 	float SlideJumpSpeedModMax;
@@ -116,7 +117,7 @@ private:
 	void DrawDebugJump();
 	void DrawDebugSlide();
 
-	float Debug_JumpHeightApex;
+	float JumpHeightApexTest = 0.f;
 
 	float Debug_TimeInSlide;
 	float Debug_SlideVal;

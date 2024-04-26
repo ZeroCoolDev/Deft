@@ -32,6 +32,7 @@ UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectIn
 	, SlideTime(0.f)
 	, SlideCurveStartTime(0.f)
 	, SlideCurveMaxTime(0.f)
+	, PrevSlideCurveVal(0.f)
 	, SlideMinimumStartTime(0.f)
 	, SlideJumpSpeedMod(0.f)
 	, SlideJumpSpeedModMax(0.f)
@@ -144,7 +145,7 @@ bool UDeftCharacterMovementComponent::DoJump(bool bReplayingMoves)
 			PrevJumpCurveVal = JumpCurve->GetFloatValue(JumpTime);
 
 #if !UE_BUILD_SHIPPING
-			Debug_JumpHeightApex = 0.f;
+			JumpHeightApexTest = 0.f;
 #endif//!UE_BUILD_SHIPPING
 
 			return true;
@@ -288,7 +289,7 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 
 #if !UE_BUILD_SHIPPING
 			// accumulating distance traveled UPWARDS to find the apex
-			Debug_JumpHeightApex += (destinationLocation.Z - actorLocation.Z);
+			JumpHeightApexTest += (destinationLocation.Z - actorLocation.Z);
 #endif //!UE_BUILD_SHIPPING
 		}
 
@@ -322,8 +323,12 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 			NotifyJumpApex();
 
 		if (landedOnFloor)
+		{
 			OnLandedFromAir.Broadcast();
-
+#if !UE_BUILD_SHIPPING
+			UE_LOG(LogTemp, Warning, TEXT("Jump Apex Height Reached: %f"), JumpHeightApexTest);
+#endif //!UE_BUILD_SHIPPING
+		}
 	}
 	else
 	{
@@ -349,6 +354,10 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 		}
 
 		CharacterOwner->StopJumping();
+
+#if !UE_BUILD_SHIPPING
+		UE_LOG(LogTemp, Warning, TEXT("Jump Apex Height Reached: %f"), JumpHeightApexTest);
+#endif //!UE_BUILD_SHIPPING
 	}
 }
 
@@ -447,15 +456,18 @@ void UDeftCharacterMovementComponent::ProcessSliding(float aDeltaTime)
 		}
 	}
 
-	// We have to update velocity every time to make sure 
-	const float slideCurveVal = SlideCurve->GetFloatValue(SlideTime);
+	const float slideCurveVal = SlideCurve->GetFloatValue(SlideTime); // speed
+	PrevSlideCurveVal = slideCurveVal;
 
 	const FVector actorLocation = CharacterOwner->GetActorLocation();
-	const FVector destinationLocation = actorLocation + (SlideDirection * /*slideCurveVal*/ 1400.f * aDeltaTime); // We don't need a curve, we just need a timer for length of time in the slide honestly
+	const FVector capsuleLocation = UpdatedComponent->GetComponentLocation();
+	const FVector destinationLocation = actorLocation + (SlideDirection * slideCurveVal * aDeltaTime); // there is a bug were slide is not framerate independent somehow even tho delta time is multiplied
 
-	FLatentActionInfo latentInfo;
-	latentInfo.CallbackTarget = this;
-	UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
+	CharacterOwner->SetActorLocationAndRotation(destinationLocation, CharacterOwner->GetActorRotation());
+
+	//FLatentActionInfo latentInfo;
+	//latentInfo.CallbackTarget = this;
+	//UKismetSystemLibrary::MoveComponentTo((USceneComponent*)CharacterOwner->GetCapsuleComponent(), destinationLocation, CharacterOwner->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
 
 #if !UE_BUILD_SHIPPING
 	Debug_SlideVal = slideCurveVal;
@@ -515,8 +527,8 @@ void UDeftCharacterMovementComponent::DoSlide()
 	// Jump displacement is affected by slide (i.e. slide to jump greater distances)
 	SlideJumpSpeedMod = SlideJumpSpeedModMax * speedPercent;
 
-	// need to make sure Velocity doesn't affect movement speed during slide otherwise it conflicts with our manual position movement
-	Velocity = FVector::ZeroVector;
+	// set velocity to max speed so that the slide speed is constant 
+	Velocity = (Velocity.GetSafeNormal() * GetMaxSpeed());
 
 	// shrink capsul
 	CharacterOwner->Crouch();
@@ -714,13 +726,13 @@ void UDeftCharacterMovementComponent::DrawDebug()
 
 void UDeftCharacterMovementComponent::DrawDebugJump()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::Cyan, FString::Printf(TEXT("\n-Jump-\n\tJump Apex Height Reached: %f"), Debug_JumpHeightApex));
+	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::Cyan, FString::Printf(TEXT("bWasJumpingLastFrame %d, Fall Curve: %s"), bWasJumpingLastFrame, FallCurveToUse ? *FallCurveToUse->GetName() : *FString("")));
 }
 
 void UDeftCharacterMovementComponent::DrawDebugSlide()
 {
 	const float slideDistance = (Debug_SlideEndPos - Debug_SlideStartPos).Length();
-	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::Cyan, FString::Printf(TEXT("\n-Slide-\n\tdistance %.2f\n\ttime in slide: %.2f\n\tVelocity len: %.2f"), slideDistance, Debug_TimeInSlide, Velocity.Length()));
+	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::Cyan, FString::Printf(TEXT("\n-Slide-\n\tdistance %.2f\n\ttime in slide: %.2f\n\tCurve val: %.2f"), slideDistance, Debug_TimeInSlide, Debug_SlideVal));
 }
 
 #endif//UE_BUILD_SHIPPING

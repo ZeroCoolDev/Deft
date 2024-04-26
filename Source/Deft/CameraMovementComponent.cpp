@@ -1,5 +1,6 @@
 #include "CameraMovementComponent.h"
 
+#include "ClimbComponent.h"
 #include "DeftCharacterMovementComponent.h"
 #include "DeftPlayerCharacter.h"
 #include "DeftLocks.h"
@@ -25,7 +26,7 @@ TAutoConsoleVariable<bool> CVar_EnablePitch(TEXT("deft.enable.camera.Pitch"), tr
 TAutoConsoleVariable<bool> CVar_DebugPitch(TEXT("deft.debug.camera.Pitch"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
 
 TAutoConsoleVariable<bool> CVar_EnableSlide(TEXT("deft.enable.camera.Slide"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
-TAutoConsoleVariable<bool> CVar_DebugSlide(TEXT("deft.debug.camera.Slide"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugCameraSlide(TEXT("deft.debug.camera.Slide"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
 
 
 UCameraMovementComponent::UCameraMovementComponent()
@@ -71,6 +72,7 @@ UCameraMovementComponent::UCameraMovementComponent()
 	, bNeedsUnroll(false)
 	, bUnrollFromLeft(false)
 	, bNeedsDip(false)
+	, bIsLedgeUpActive(false)
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
@@ -89,7 +91,13 @@ void UCameraMovementComponent::BeginPlay()
 
 	DeftCharacter = Cast<ADeftPlayerCharacter>(GetOwner());
 	if (!DeftCharacter.IsValid())
+	{
 		UE_LOG(LogTemp, Error, TEXT("Missing owner"));
+		return;
+	}
+
+	if (UClimbComponent* climbComponent = DeftCharacter->FindComponentByClass<UClimbComponent>())
+		climbComponent->OnLedgeUpDelegate.AddUObject(this, &UCameraMovementComponent::OnClimbActionLedgeUp);
 
 	// Bobble Setup
 	if (WalkBobbleCurve)
@@ -537,8 +545,12 @@ void UCameraMovementComponent::ExitSlide()
 
 void UCameraMovementComponent::OnLandedFromAir()
 {
-	bNeedsDip = true;
-	DipLerpTime = 0.f;
+	// Only dip if we're not landing from ledge up since it looks smoother without it
+	if (!bIsLedgeUpActive)
+	{
+		bNeedsDip = true;
+		DipLerpTime = 0.f;
+	}
 }
 
 void UCameraMovementComponent::OnSlideActionOccured(bool aIsSlideActive)
@@ -547,6 +559,11 @@ void UCameraMovementComponent::OnSlideActionOccured(bool aIsSlideActive)
 		EnterSlide();
 	else
 		UnSlide();
+}
+
+void UCameraMovementComponent::OnClimbActionLedgeUp(bool aIsStarted)
+{
+	bIsLedgeUpActive = true;
 }
 
 #if !UE_BUILD_SHIPPING
@@ -581,7 +598,7 @@ void UCameraMovementComponent::DrawDebug()
 		DrawDebugDip();
 	if (CVar_DebugPitch.GetValueOnGameThread())
 		DrawDebugPitch();
-	if (CVar_DebugSlide.GetValueOnGameThread())
+	if (CVar_DebugCameraSlide.GetValueOnGameThread())
 		DrawDebugSlide();
 }
 
