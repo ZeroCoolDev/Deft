@@ -32,6 +32,7 @@ protected:
 
 private:
 	void ProcessLedgeUp(float aDeltaTime);
+	void ProcessLedgeUpDipDelay(float aDeltaTime);
 
 	bool IsLedgeReachable();
 	bool IsLedgeWithinHeightRange(FVector& outHeightDistanceTraceEnd);
@@ -48,7 +49,8 @@ private:
 	TWeakObjectPtr<class UDeftCharacterMovementComponent> DeftMovementComponent;
 
 	float CapsuleRadius;
-	
+
+	// Ledge Up
 	float LedgeHeightMin;
 	float LedgeWidthRequirement;
 	float LedgeReachDistance; // how far away we can be from a ledge for it to activate
@@ -56,8 +58,12 @@ private:
 	float LedgeUpLerpTime;
 	float LedgeUpLerpTimeMax;
 	float LedgeUpHeightBoostMax;
+	// delay dip from being activated after a dip otherwise it looks too bouncy
+	float LedgeUpDipDelay;
+	float LedgeUpDipDelayMax;
+
 	bool bIsLedgeUpActive;
-	
+
 #if !UE_BUILD_SHIPPING
 	void DrawDebug();
 	void DrawDebugLedgeUp();

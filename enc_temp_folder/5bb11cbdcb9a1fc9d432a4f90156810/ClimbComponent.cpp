@@ -110,6 +110,7 @@ void UClimbComponent::ProcessLedgeUp(float aDeltaTime)
 	{
 		// start delay and lock dip
 		LedgeUpDipDelay = 0.f;
+		UE_LOG(LogTemp, Warning, TEXT("spamspam, locking dip cuz ledgeup finished"));
 		DeftLocks::IncrementCameraMovementDipLockRef();
 
 		bIsLedgeUpActive = false;
@@ -139,12 +140,14 @@ void UClimbComponent::ProcessLedgeUpDipDelay(float aDeltaTime)
 
 	if (LedgeUpDipDelay >= LedgeUpDipDelayMax)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("spamspam, dip can play now"));
 		if (DeftLocks::IsCameraMovementDipLocked())
 			DeftLocks::DecrementCamreaMovementDipLockRef();
 		LedgeUpDipDelay = -1;
 		return;
 	}
 
+	UE_LOG(LogTemp, Warning, TEXT("spamspam, dip is delayed"));
 	LedgeUpDipDelay += aDeltaTime;
 }
 
@@ -294,10 +297,8 @@ void UClimbComponent::DrawDebug()
 void UClimbComponent::DrawDebugLedgeUp()
 {
 	const float dipDelay = LedgeUpDipDelayMax - LedgeUpDipDelay;
-	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::White, FString::Printf(TEXT("\tLerpTime: %.2f\n\tLerpMax: %.2f\n\tDip Locked for: %.2fs"), LedgeUpLerpTime, LedgeUpLerpTimeMax, dipDelay));
-	GEngine->AddOnScreenDebugMessage(-1, 0.005, Debug_LedgeUpSuccess ? FColor::Green : FColor::Red, FString::Printf(TEXT("\t%s"), *Debug_LedgeUpMessage));
-	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::Yellow, TEXT("\n-Ledge Up-"));
-
+	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::Yellow, FString::Printf(TEXT("\n-Ledge Up-\n\tLerpTime: %.2f\n\tLerpMax: %.2f\n\t%s\n\tDip Locked for: %.2fs"), LedgeUpLerpTime, LedgeUpLerpTimeMax, *Debug_LedgeUpMessage, dipDelay));
+	
 	// debug reach
 	if (Debug_LedgeReach)
 		DrawDebugCapsule(GetWorld(), Debug_LedgeReachLoc, CapsuleCollisionShape.GetCapsuleHalfHeight(), CapsuleCollisionShape.GetCapsuleRadius(), DeftCharacter->GetActorRotation().Quaternion(), Debug_LedgeReachColor);

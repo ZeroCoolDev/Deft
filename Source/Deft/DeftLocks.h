@@ -9,9 +9,18 @@
  */
 class DEFT_API DeftLocks
 {
+private:
+	static uint8 CameraMovementDipLock;
+	static uint8 SlideLock;
+	static uint8 InputLock;
+
 public:
 	DeftLocks(){}
 	~DeftLocks(){}
+
+	static bool IsCameraMovementDipLocked();
+	static void IncrementCameraMovementDipLockRef();
+	static void DecrementCamreaMovementDipLockRef();
 
 	static bool IsSlideLocked();
 	static void IncrementSlideLockRef();
@@ -21,7 +30,7 @@ public:
 	static void IncrementInputLockRef();
 	static void DecrementInputLockRef();
 
-private:
-	static int SlideLock;
-	static int InputLock;
+#if !UE_BUILD_SHIPPING
+	static void DrawLockDebug();
+#endif //!UE_BUILD_SHIPPING
 };

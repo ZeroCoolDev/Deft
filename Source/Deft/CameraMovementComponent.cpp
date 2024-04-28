@@ -72,7 +72,6 @@ UCameraMovementComponent::UCameraMovementComponent()
 	, bNeedsUnroll(false)
 	, bUnrollFromLeft(false)
 	, bNeedsDip(false)
-	, bIsLedgeUpActive(false)
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
@@ -95,9 +94,6 @@ void UCameraMovementComponent::BeginPlay()
 		UE_LOG(LogTemp, Error, TEXT("Missing owner"));
 		return;
 	}
-
-	if (UClimbComponent* climbComponent = DeftCharacter->FindComponentByClass<UClimbComponent>())
-		climbComponent->OnLedgeUpDelegate.AddUObject(this, &UCameraMovementComponent::OnClimbActionLedgeUp);
 
 	// Bobble Setup
 	if (WalkBobbleCurve)
@@ -330,8 +326,10 @@ void UCameraMovementComponent::UnRoll(float aDeltaTime)
 
 void UCameraMovementComponent::ProcessCameraDip(float aDeltaTime)
 {
-	// TODO: this might have an bug if we enter sliding or jump again before the dip is complete?
 	if (!bNeedsDip)
+		return;
+
+	if (DeftLocks::IsCameraMovementDipLocked())
 		return;
 
 	if (!CameraTarget.IsValid())
@@ -545,8 +543,7 @@ void UCameraMovementComponent::ExitSlide()
 
 void UCameraMovementComponent::OnLandedFromAir()
 {
-	// Only dip if we're not landing from ledge up since it looks smoother without it
-	if (!bIsLedgeUpActive)
+	if (!DeftLocks::IsCameraMovementDipLocked())
 	{
 		bNeedsDip = true;
 		DipLerpTime = 0.f;
@@ -559,11 +556,6 @@ void UCameraMovementComponent::OnSlideActionOccured(bool aIsSlideActive)
 		EnterSlide();
 	else
 		UnSlide();
-}
-
-void UCameraMovementComponent::OnClimbActionLedgeUp(bool aIsStarted)
-{
-	bIsLedgeUpActive = true;
 }
 
 #if !UE_BUILD_SHIPPING

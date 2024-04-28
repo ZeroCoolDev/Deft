@@ -7,6 +7,7 @@
 #include "GameFramework/Character.h"
 #include "Kismet/KismetSystemLibrary.h"
 
+TAutoConsoleVariable<bool> CVar_DebugLocks(TEXT("deft.debug.locks"), false, TEXT("show debugging for locks"), ECVF_Cheat);
 TAutoConsoleVariable<bool> CVar_UseEngineJump(TEXT("deft.jump.UseJumpCurve"), true, TEXT("true=use custom jump curve logic, false=use engine jump logic"), ECVF_Cheat);
 TAutoConsoleVariable<bool> CVar_DebugJump(TEXT("deft.debug.jump"), false, TEXT("draw debug for jumping"), ECVF_Cheat);
 TAutoConsoleVariable<bool> CVar_DebugSlide(TEXT("deft.debug.slide"), false, TEXT("draw debug for sliding"), ECVF_Cheat);
@@ -202,8 +203,6 @@ void UDeftCharacterMovementComponent::OnClimbActionLedgeUp(bool aIsStarted)
 {
 	if (aIsStarted)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("OnClimbActionLedgeUp"));
-
 		bIsJumping = false;
 		bIsSliding = false;
 		bIsFalling = false;
@@ -706,6 +705,8 @@ bool UDeftCharacterMovementComponent::IsJumpCurveEnabled() const
 
 void UDeftCharacterMovementComponent::DrawDebug()
 {
+	if (CVar_DebugLocks.GetValueOnGameThread())
+		DeftLocks::DrawLockDebug();
 	if (CVar_DebugJump.GetValueOnGameThread())
 		DrawDebugJump();
 	if (CVar_DebugSlide.GetValueOnGameThread())
