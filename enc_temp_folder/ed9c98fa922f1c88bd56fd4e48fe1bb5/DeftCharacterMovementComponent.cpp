@@ -9,7 +9,7 @@
 
 
 TAutoConsoleVariable<int> CVar_FeatureJumpCurve(TEXT("deft.feature.jump"), 1, TEXT("1=use custom jump curve logic, 0=use engine jump logic"), ECVF_Cheat);
-TAutoConsoleVariable<int> CVar_Feature_SlideMode(TEXT("deft.feature.slide"), 0, TEXT("0=slide distance is determined by entering velocity, 1=slide distance is consistent regardless of entering velocity"), ECVF_Cheat);
+TAutoConsoleVariable<int> CVar_Feature_SlideMode(TEXT("deft.feature.slide"), 1, TEXT("0=slide distance is determined by entering velocity, 1=slide distance is consistent regardless of entering velocity"), ECVF_Cheat);
 
 TAutoConsoleVariable<bool> CVar_DebugLocks(TEXT("deft.debug.locks"), false, TEXT("show debugging for locks"), ECVF_Cheat);
 TAutoConsoleVariable<bool> CVar_DebugJump(TEXT("deft.debug.jump"), false, TEXT("draw debug for jumping"), ECVF_Cheat);
@@ -35,6 +35,7 @@ UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectIn
 	, PrevFallCurveVal(0.f)
 	, SlideTime(0.f)
 	, SlideSpeedMax(0.f)
+	, SlideMaxTime(0.f)
 	, SlideCurveStartTime(0.f)
 	, SlideCurveMaxTime(0.f)
 	, SlideMinimumStartTime(0.f)
@@ -89,6 +90,8 @@ void UDeftCharacterMovementComponent::BeginPlay()
 		UE_LOG(LogTemp, Error, TEXT("Missing Slide Curve"));
 
 	SlideSpeedMax = 1200.f;
+	SlideMaxTime = 0.55f;
+
 	SlideMinimumStartTime = 0.3;
 	SlideJumpSpeedModMax = 4.f;
 }
@@ -429,15 +432,21 @@ void UDeftCharacterMovementComponent::ProcessSliding(float aDeltaTime)
 		return;
 	}
 
+	float slideMaxTime = 0.f;
+	if (CVar_Feature_SlideMode.GetValueOnGameThread() == 0) // Velocity based slide distance
+		slideMaxTime = SlideCurveMaxTime;
+	else if (CVar_Feature_SlideMode.GetValueOnGameThread() == 1) // Constant slide distance
+		slideMaxTime = SlideMaxTime;
+
 	// move component based off curve (increasing speed essentially)
 	const float prevSlideTime = SlideTime;
 	SlideTime += aDeltaTime;
-	if (SlideTime > SlideCurveMaxTime)
+	if (SlideTime > slideMaxTime)
 	{
-		if (prevSlideTime < SlideCurveMaxTime)
+		if (prevSlideTime < slideMaxTime)
 		{
 			// Last frame making sure we hit the max and min
-			SlideTime = SlideCurveMaxTime;
+			SlideTime = slideMaxTime;
 		}
 		else
 		{
@@ -446,7 +455,7 @@ void UDeftCharacterMovementComponent::ProcessSliding(float aDeltaTime)
 		}
 	}
 
-	float slideSpeed;
+	float slideSpeed = 0.f;
 	if (CVar_Feature_SlideMode.GetValueOnGameThread() == 0) // Velocity based slide distance
 		slideSpeed = SlideCurve->GetFloatValue(SlideTime);
 	else if (CVar_Feature_SlideMode.GetValueOnGameThread() == 1) // Constant slide distance

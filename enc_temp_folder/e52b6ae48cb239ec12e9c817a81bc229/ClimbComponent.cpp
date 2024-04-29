@@ -164,12 +164,11 @@ void UClimbComponent::LedgeUp()
 	if (!isInAir)
 		return;
 
-	FVector ledgeLocation;
-	if (!IsLedgeReachable(ledgeLocation))
+	if (!IsLedgeReachable())
 		return;
 
 	FVector heightDistanceTraceEnd;
-	if (!IsLedgeWithinHeightRange(ledgeLocation, heightDistanceTraceEnd))
+	if (!IsLedgeWithinHeightRange(heightDistanceTraceEnd))
 		return;
 
 	FHitResult surfaceHit;
@@ -192,7 +191,7 @@ void UClimbComponent::LedgeUp()
 	OnLedgeUpDelegate.Broadcast(bIsLedgeUpActive);
 }
 
-bool UClimbComponent::IsLedgeReachable(FVector& outLedgeLocation)
+bool UClimbComponent::IsLedgeReachable()
 {
 #if !UE_BUILD_SHIPPING
 	Debug_LedgeReach = true;
@@ -204,10 +203,7 @@ bool UClimbComponent::IsLedgeReachable(FVector& outLedgeLocation)
 	FHitResult reachHit;
 
 	const bool isBlockingHit = GetWorld()->SweepSingleByProfile(reachHit, ledgeReachStart, ledgeReachEnd, DeftCharacter->GetActorRotation().Quaternion(), DeftCharacter->GetCapsuleComponent()->GetCollisionProfileName(), CapsuleCollisionShape, CollisionQueryParams);
-	if (isBlockingHit)
-		outLedgeLocation = reachHit.Location;
 #if !UE_BUILD_SHIPPING
-	Debug_LedgeUpAttemptLoc = ledgeReachStart;
 	Debug_LedgeReachLoc = isBlockingHit ? reachHit.Location : ledgeReachEnd;
 	Debug_LedgeReachColor = isBlockingHit ? FColor::Green : FColor::Red;
 	Debug_LedgeUpMessage = !isBlockingHit ? "Can't ledge up: nothing in reach" : "";
@@ -215,7 +211,7 @@ bool UClimbComponent::IsLedgeReachable(FVector& outLedgeLocation)
 	return isBlockingHit;
 }
 
-bool UClimbComponent::IsLedgeWithinHeightRange(const FVector& aLedgeLocation, FVector& outHeightDistanceTraceEnd)
+bool UClimbComponent::IsLedgeWithinHeightRange(FVector& outHeightDistanceTraceEnd)
 {
 #if !UE_BUILD_SHIPPING
 	Debug_LedgeHeight = true;
@@ -223,17 +219,13 @@ bool UClimbComponent::IsLedgeWithinHeightRange(const FVector& aLedgeLocation, FV
 
 	// check if a "ledge" exists i.e. open space above a surface wide enough to stand on
 	const FVector actorFwdNormal = DeftCharacter->GetActorForwardVector().GetSafeNormal();
-	const FVector actorLocation = DeftCharacter->GetActorLocation();
-	const FVector ledgeTraceStart = FVector(aLedgeLocation.X, aLedgeLocation.Y, actorLocation.Z) +	// push actor's loc to the wall
-									FVector(0.f, 0.f, LedgeHeightMin) +								// raise it up our minimum acceptable ledge height
-									(actorFwdNormal * CapsuleRadius);								// extend out by at least out capsul size 
+	const FVector ledgeTraceStart = DeftCharacter->GetActorLocation() + FVector(0.f, 0.f, LedgeHeightMin) + (actorFwdNormal * CapsuleRadius);
 	outHeightDistanceTraceEnd = ledgeTraceStart + (actorFwdNormal * LedgeWidthRequirement);
-
 	FHitResult ledgeHeightHit;
+
 	const bool isBlockingHit = GetWorld()->LineTraceSingleByChannel(ledgeHeightHit, ledgeTraceStart, outHeightDistanceTraceEnd, ECC_WorldStatic, CollisionQueryParams);
 	if (isBlockingHit)
 		outHeightDistanceTraceEnd = ledgeHeightHit.Location;
-
 #if !UE_BUILD_SHIPPING
 	Debug_LedgeHeightStart = ledgeTraceStart;
 	Debug_LedgeHeightEnd = outHeightDistanceTraceEnd;
@@ -308,10 +300,7 @@ void UClimbComponent::DrawDebugLedgeUp()
 
 	// debug reach
 	if (Debug_LedgeReach)
-	{
-		DrawDebugCapsule(GetWorld(), Debug_LedgeUpAttemptLoc, CapsuleCollisionShape.GetCapsuleHalfHeight(), CapsuleCollisionShape.GetCapsuleRadius(), DeftCharacter->GetActorRotation().Quaternion(), FColor::White);
 		DrawDebugCapsule(GetWorld(), Debug_LedgeReachLoc, CapsuleCollisionShape.GetCapsuleHalfHeight(), CapsuleCollisionShape.GetCapsuleRadius(), DeftCharacter->GetActorRotation().Quaternion(), Debug_LedgeReachColor);
-	}
 	
 	// debug height
 	if (Debug_LedgeHeight)

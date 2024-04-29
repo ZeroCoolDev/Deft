@@ -510,30 +510,27 @@ void UDeftCharacterMovementComponent::DoSlide()
 	// slide in the direction of the player's last velocity but independent of it's speed (which is constant during slide excluding jump)
 	SlideDirection = Velocity.GetSafeNormal();
 
+	// Force backwards movement to be much less since sliding backwards is harder than forward
+	const float minSpeedPercent = 0.5f;
+	float speedPercent = 1.f;
+
 	if (CVar_Feature_SlideMode.GetValueOnGameThread() == 0) // Velocity based slide distance
 	{
 		// min speed percent makes sure we can still slide even at very low velocities
-		const float minSpeedPercent = 0.5f;
-		float speedPercent = FMath::Max(minSpeedPercent, Velocity.Length() / GetMaxSpeed());
-
-		// Force backwards movement to be much less since sliding backwards is harder than forward
-		if (ADeftPlayerCharacter* deftPlayerCharacter = Cast<ADeftPlayerCharacter>(CharacterOwner))
-			if (deftPlayerCharacter->GetInputMoveVector().Y < 0.f)
-				speedPercent = minSpeedPercent;
-
-		// Determines how far into the slide curve to start inverse proportional to speed, meaning:
-		// Max Speed = Max Slide length, 50% speed = 50% slide length. slower speeds when entering slide results in shorter slide duration
-		SlideTime = SlideCurveMaxTime - (SlideCurveMaxTime * speedPercent);
-
-		// Jump displacement is affected by slide (i.e. slide to jump greater distances)
-		SlideJumpSpeedMod = SlideJumpSpeedModMax * speedPercent;
-
+		speedPercent = FMath::Max(minSpeedPercent, Velocity.Length() / GetMaxSpeed());
 	}
-	else if (CVar_Feature_SlideMode.GetValueOnGameThread() == 1) // Constant slide distance
-	{
-		SlideTime = 0.f;
-		SlideJumpSpeedMod = SlideJumpSpeedModMax;
-	}
+
+	// Force backwards movement to be much less since sliding backwards is harder than forward
+	if (Cast<ADeftPlayerCharacter>(CharacterOwner)->GetInputMoveVector().Y < 0.f)
+		speedPercent = minSpeedPercent;
+
+	// SlideCurveMaxTime: For velocity curve based slide determines how far into the slide curve to start inverse proportional to speed.
+	// SlideMaxTime: constant slide speed
+	float slideMaxtime = CVar_Feature_SlideMode.GetValueOnGameThread() == 0 ? SlideCurveMaxTime : SlideMaxTime;
+	SlideTime = slideMaxtime - (slideMaxtime * speedPercent);
+
+	// Jump displacement is affected by slide (i.e. slide to jump greater distances)
+	SlideJumpSpeedMod = SlideJumpSpeedModMax * speedPercent;
 
 	// need to make sure Velocity doesn't affect movement speed during slide otherwise it conflicts with our manual position movement
 	Velocity = FVector::ZeroVector;

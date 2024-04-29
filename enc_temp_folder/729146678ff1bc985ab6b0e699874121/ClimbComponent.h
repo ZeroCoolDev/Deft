@@ -34,8 +34,8 @@ private:
 	void ProcessLedgeUp(float aDeltaTime);
 	void ProcessLedgeUpDipDelay(float aDeltaTime);
 
-	bool IsLedgeReachable(FVector& outLedgeLocation);
-	bool IsLedgeWithinHeightRange(const FVector& aLedgeLocation, FVector& outHeightDistanceTraceEnd);
+	bool IsLedgeReachable();
+	bool IsLedgeWithinHeightRange(FVector& outHeightDistanceTraceEnd);
 	bool IsLedgeSurfaceWalkable(const FVector& aHeightDistanceTraceEnd, FHitResult& outSurfaceHit);
 	bool IsEnoughRoomOnLedge(const FHitResult& aSurfaceHit, FVector& outFinalDestination);
 
@@ -69,7 +69,6 @@ private:
 	void DrawDebugLedgeUp();
 
 	bool Debug_LedgeUpSuccess;
-	FVector Debug_LedgeUpAttemptLoc;
 	FString Debug_LedgeUpMessage;
 
 	bool Debug_LedgeReach;
