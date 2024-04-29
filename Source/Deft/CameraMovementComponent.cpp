@@ -11,21 +11,18 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 //TODO: maybesplit this into 5 CameraMovementComponent classes: Bobble, Roll, Dip(Land), Pitch , Slide
-TAutoConsoleVariable<bool> CVar_DebugEnable(TEXT("deft.debug.camera"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
 
 TAutoConsoleVariable<bool> CVar_EnableBobble(TEXT("deft.enable.camera.Bobble"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
-TAutoConsoleVariable<bool> CVar_DebugBobble(TEXT("deft.camera.debug.Bobble"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
-
 TAutoConsoleVariable<bool> CVar_EnableLean(TEXT("deft.enable.camera.Lean"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
-TAutoConsoleVariable<bool> CVar_DebugLean(TEXT("deft.debug.camera.Lean"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
-
 TAutoConsoleVariable<bool> CVar_EnableDip(TEXT("deft.enable.camera.Dip"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
-TAutoConsoleVariable<bool> CVar_DebugDip(TEXT("deft.debug.camera.Dip"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
-
 TAutoConsoleVariable<bool> CVar_EnablePitch(TEXT("deft.enable.camera.Pitch"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
-TAutoConsoleVariable<bool> CVar_DebugPitch(TEXT("deft.debug.camera.Pitch"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
-
 TAutoConsoleVariable<bool> CVar_EnableSlide(TEXT("deft.enable.camera.Slide"), true, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+
+TAutoConsoleVariable<bool> CVar_DebugEnable(TEXT("deft.debug.camera"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugBobble(TEXT("deft.camera.debug.Bobble"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugLean(TEXT("deft.debug.camera.Lean"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugDip(TEXT("deft.debug.camera.Dip"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugPitch(TEXT("deft.debug.camera.Pitch"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
 TAutoConsoleVariable<bool> CVar_DebugCameraSlide(TEXT("deft.debug.camera.Slide"), false, TEXT("true = enabled, false = disabled"), ECVF_Cheat);
 
 

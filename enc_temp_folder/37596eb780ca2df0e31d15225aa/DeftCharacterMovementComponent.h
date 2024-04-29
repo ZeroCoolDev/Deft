@@ -97,7 +97,6 @@ private:
 	// Slide
 	float SlideTime;
 	float SlideSpeedMax;
-	float SlideMaxTime;
 	float SlideCurveStartTime;
 	float SlideCurveMaxTime;
 	float SlideMinimumStartTime;		// (deprecated) Slide will default to a minimum duration if velocity is very low (i.e. player barely taps a direction and slides)
