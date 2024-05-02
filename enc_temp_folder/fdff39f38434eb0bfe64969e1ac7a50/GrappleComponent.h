@@ -26,6 +26,9 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	UFUNCTION()
+	void OnGrappleCollision(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
 	void DoGrapple();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Collision)
@@ -45,8 +48,9 @@ protected:
 	TWeakObjectPtr<class ADeftPlayerCharacter> DeftCharacter;
 
 	FVector GrappleMaxReachPoint;
-	float GrappleDistanceMax;	// maximum distance grapple can reach
-	float GrappleSpeed;			// speed at which the grapple moves
+	float GrappleReachThreshold;	// how close the grapple needs to actually get to the max reach before we consider it complete
+	float GrappleDistanceMax;		// maximum distance grapple can reach
+	float GrappleSpeed;				// speed at which the grapple moves
 
 	GrappleStateEnum GrappleState;
 
@@ -56,6 +60,7 @@ protected:
 	void DrawDebug();
 
 	FVector Debug_GrappleLocThisFrame;
+	FVector Debug_GrappleMaxLocReached;
 	float Debug_GrappleDistance;
 #endif //!UE_BUILD_SHIPPING
 };

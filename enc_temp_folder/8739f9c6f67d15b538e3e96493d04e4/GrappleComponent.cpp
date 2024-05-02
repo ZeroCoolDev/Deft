@@ -28,7 +28,7 @@ UGrappleComponent::UGrappleComponent()
 
 	Grapple = CreateDefaultSubobject<USphereComponent>(TEXT("Grapple Collision Sphere"));
 	Grapple->InitSphereRadius(5.f);
-	Grapple->BodyInstance.SetCollisionProfileName("Grapple");
+	Grapple->OnComponentHit.AddDynamic(this, &UGrappleComponent::OnGrappleCollision);
 
 	GrappleAnchor = CreateDefaultSubobject<USceneComponent>(TEXT("Grapple Anchor"));
 }
@@ -46,8 +46,8 @@ void UGrappleComponent::BeginPlay()
 	if (!DeftCharacter.IsValid())
 		UE_LOG(LogTemp, Error, TEXT("Failed to find DeftPlayerCharacter!"));
 
-	GrappleDistanceMax = 1000.f;
-	GrappleSpeed = 1100.f;
+	GrappleDistanceMax = 500.f;
+	GrappleSpeed = 700.f;
 	GrappleReachThreshold = 5.f;
 }
 
@@ -79,6 +79,12 @@ void UGrappleComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 #if !UE_BUILD_SHIPPING
 	DrawDebug();
 #endif //!UE_BUILD_SHIPPING
+}
+
+void UGrappleComponent::OnGrappleCollision(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	UE_LOG(LogTemp, Warning, TEXT("collidied with something"));
+	EndGrapple();
 }
 
 void UGrappleComponent::DoGrapple()
@@ -125,19 +131,20 @@ void UGrappleComponent::ProcessGrapple(float aDeltaTime)
 #endif //!UE_BUILD_SHIPPING
 
 	// Collision check
-	FCollisionQueryParams collisionParams;
-	collisionParams.AddIgnoredActor(DeftCharacter.Get());
-	collisionParams.AddIgnoredComponent(Grapple);
-	FCollisionShape sphereShape = FCollisionShape::MakeSphere(Grapple->GetUnscaledSphereRadius() * 2.f);
+	//FCollisionQueryParams collisionParams;
+	//collisionParams.AddIgnoredActor(DeftCharacter.Get());
+	//collisionParams.AddIgnoredComponent(Grapple);
+	//FCollisionShape sphereShape = FCollisionShape::MakeSphere(Grapple->GetUnscaledSphereRadius());
 
-	FHitResult hit;
-	const bool bIsBlockingHit = GetWorld()->SweepSingleByProfile(hit, grappleLoc, grappleLoc + (DeftCharacter->GetActorForwardVector() * 100.f), Grapple->GetComponentRotation().Quaternion(), Grapple->GetCollisionProfileName(), sphereShape, collisionParams);
-	if (bIsBlockingHit)
-	{
-		Debug_GrappleMaxLocReached = hit.Location;
-		EndGrapple();
-		return;
-	}
+	//FHitResult hit;
+	//const bool bIsBlockingHit = GetWorld()->SweepSingleByProfile(hit, grappleLoc, destination, Grapple->GetComponentRotation().Quaternion(), Grapple->GetCollisionProfileName(), sphereShape, collisionParams);
+	//if (bIsBlockingHit)
+	//{
+	//	Debug_GrappleMaxLocReached = hit.Location;
+	//	UE_LOG(LogTemp, Warning, TEXT("hit something early before max distance"));
+	//	EndGrapple();
+	//	return;
+	//}
 
 	FLatentActionInfo latentInfo;
 	latentInfo.CallbackTarget = this;
@@ -164,16 +171,16 @@ void UGrappleComponent::DrawDebug()
 	DrawDebugSphere(GetWorld(), Grapple->GetComponentLocation(), Grapple->GetUnscaledSphereRadius(), 12, FColor::Blue);
 	DrawDebugSphere(GetWorld(), GrappleAnchor->GetComponentLocation(), 10.f, 12, FColor::White);
 	DrawDebugSphere(GetWorld(), GrappleMaxReachPoint, 10.f, 12, FColor::Yellow);
+	DrawDebugSphere(GetWorld(), Debug_GrappleMaxLocReached, Grapple->GetUnscaledSphereRadius(), 12, FColor::Red);
 
-	if (!bIsGrappleActive)
+	if (bIsGrappleActive)
 	{
-		DrawDebugSphere(GetWorld(), Debug_GrappleMaxLocReached, Grapple->GetUnscaledSphereRadius(), 12, FColor::Red);
-		//DrawDebugSphere(GetWorld(), Debug_GrappleLocThisFrame, 5.f, 8, FColor::Purple, false, 0.5f);
+		DrawDebugSphere(GetWorld(), Debug_GrappleLocThisFrame, 5.f, 8, FColor::Purple, false, 0.5f);
 	}
 
 	if (UCameraComponent* cameraComponent = DeftCharacter->FindComponentByClass<UCameraComponent>())
 	{
-		//DrawDebugLine(GetWorld(), DeftCharacter->GetActorLocation(), DeftCharacter->GetActorLocation() + (cameraComponent->GetForwardVector() * 100.f), FColor::Cyan);
+		DrawDebugLine(GetWorld(), DeftCharacter->GetActorLocation(), DeftCharacter->GetActorLocation() + (cameraComponent->GetForwardVector() * 100.f), FColor::Cyan);
 	}
 }
 #endif //!UE_BUILD_SHIPPING

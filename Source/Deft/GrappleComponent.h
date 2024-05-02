@@ -20,16 +20,10 @@ protected:
 	};
 
 public:	
-	// Sets default values for this component's properties
 	UGrappleComponent();
 
-	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
 	void DoGrapple();
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Collision)
-	class USceneComponent* GrappleAnchor;
 
 protected:
 	// Called when the game starts
@@ -38,6 +32,9 @@ protected:
 	void UpdateGrappleAnchorLocation();
 	void ProcessGrapple(float aDeltaTime);
 	void EndGrapple();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Collision)
+	class USceneComponent* GrappleAnchor;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Collision)
 	class USphereComponent* Grapple;
@@ -57,6 +54,7 @@ protected:
 	void DrawDebug();
 
 	FVector Debug_GrappleLocThisFrame;
+	FVector Debug_GrappleMaxLocReached;
 	float Debug_GrappleDistance;
 #endif //!UE_BUILD_SHIPPING
 };
