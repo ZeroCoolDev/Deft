@@ -34,6 +34,7 @@ protected:
 	void Move(const FInputActionValue& aValue);
 	void Look(const FInputActionValue& aValue);
 	void Slide();
+	void Grapple();
 
 	void OnLandedBeginJumpDelay();
 	void UpdateJumpDelay(float aDeltaTim);
@@ -63,11 +64,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	class UInputAction* SlideAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	class UInputAction* GrappleAction;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	class UCameraMovementComponent* CameraMovementComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Climbing)
 	class UClimbComponent* ClimbComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Grapple)
+	class UGrappleComponent* GrappleComponent;
 
 private:
 	FVector2D InputMoveVector;

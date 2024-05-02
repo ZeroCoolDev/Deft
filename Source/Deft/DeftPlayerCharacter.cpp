@@ -2,6 +2,7 @@
 
 #include "Camera/CameraComponent.h"
 #include "CameraMovementComponent.h"
+#include "Components/SceneComponent.h"
 #include "ClimbComponent.h"
 #include "DeftCharacterMovementComponent.h"
 #include "DeftLocks.h"
@@ -9,6 +10,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GrappleComponent.h"
 
 // Sets default values
 ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectInitializer)
@@ -20,6 +22,10 @@ ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectIniti
 	, MoveAction(nullptr)
 	, LookAction(nullptr)
 	, SlideAction(nullptr)
+	, GrappleAction(nullptr)
+	, CameraMovementComponent(nullptr)
+	, ClimbComponent(nullptr)
+	, GrappleComponent(nullptr)
 	, InputMoveVector(FVector2D::ZeroVector)
 	, JumpDelayMaxTime(0.f)
 	, JumpDelayTime(0.f)
@@ -46,8 +52,8 @@ ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectIniti
 	CameraComp->bUsePawnControlRotation = true;
 
 	CameraMovementComponent = CreateDefaultSubobject<UCameraMovementComponent>(TEXT("CameraMovementComponent"));
-
 	ClimbComponent = CreateDefaultSubobject<UClimbComponent>(TEXT("ClimbComponent"));
+	GrappleComponent = CreateDefaultSubobject<UGrappleComponent>(TEXT("GrappleComponent"));
 }
 
 // Called when the game starts or when spawned
@@ -117,6 +123,12 @@ void ADeftPlayerCharacter::Slide()
 {
 	if (UDeftCharacterMovementComponent* deftCharacterMovementComponent = Cast<UDeftCharacterMovementComponent>(GetCharacterMovement()))
 		deftCharacterMovementComponent->DoSlide();
+}
+
+void ADeftPlayerCharacter::Grapple()
+{
+	if (GrappleComponent)
+		GrappleComponent->DoGrapple();
 }
 
 void ADeftPlayerCharacter::OnLandedBeginJumpDelay()
@@ -195,6 +207,9 @@ void ADeftPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 		// Slide
 		inputComp->BindAction(SlideAction, ETriggerEvent::Started, this, &ADeftPlayerCharacter::Slide);
+
+		// Grapple
+		inputComp->BindAction(GrappleAction, ETriggerEvent::Started, this, &ADeftPlayerCharacter::Grapple);
 	}
 }
 
