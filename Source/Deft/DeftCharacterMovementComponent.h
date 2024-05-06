@@ -19,8 +19,9 @@ public:
 
 	FLandedFromAirDelegate OnLandedFromAir;
 	FSlideActionOccurredDelegate OnSlideActionOccured;
-
 	void DoSlide();
+
+	void DoImpulse(const FVector& impulseDir);
 
 	bool IsDeftJumping() const { return bIsJumping; }
 	bool IsDeftFalling() const { return bIsFalling; }
@@ -69,6 +70,7 @@ private:
 	void ProcessJumping(float aDeltaTime);
 	void ProcessFalling(float aDeltaTime);
 	void ProcessSliding(float aDeltaTime);
+	void ProcessImpulseFallDelay(float aDeltaTime);
 
 	void StopSlide();
 
@@ -104,11 +106,16 @@ private:
 	float SlideJumpSpeedMod;			// Jump Speed modifier based off slide speed to give the player a longer jump during slide
 	float SlideJumpSpeedModMax;
 
+	// Impulse
+	float ImpulseFallDelay;
+	float ImpulseFallDelayMax;
+
 	bool bIsJumping;
 	bool bWasJumpingLastFrame;
 	bool bIsValidJumpCurve;
 	bool bIsFalling;
 	bool bIsSliding;
+	bool bIsInImpulse; //TODO: not sure about this, but we need a way to know if we should ignore our custom falling (while we're flying through the air at least right?)
 
 private:
 #if !UE_BUILD_SHIPPING
@@ -117,6 +124,7 @@ private:
 	void DrawDebug();
 	void DrawDebugJump();
 	void DrawDebugSlide();
+	void DrawDebugFall();
 
 	float Debug_JumpHeightApex;
 

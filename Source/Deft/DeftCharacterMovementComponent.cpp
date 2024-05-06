@@ -14,6 +14,7 @@ TAutoConsoleVariable<int> CVar_Feature_SlideMode(TEXT("deft.feature.slide"), 1, 
 TAutoConsoleVariable<bool> CVar_DebugLocks(TEXT("deft.debug.locks"), false, TEXT("show debugging for locks"), ECVF_Cheat);
 TAutoConsoleVariable<bool> CVar_DebugJump(TEXT("deft.debug.jump"), false, TEXT("draw debug for jumping"), ECVF_Cheat);
 TAutoConsoleVariable<bool> CVar_DebugSlide(TEXT("deft.debug.slide"), false, TEXT("draw debug for sliding"), ECVF_Cheat);
+TAutoConsoleVariable<bool> CVar_DebugFall(TEXT("deft.debug.fall"), false, TEXT("draw debug for falling"), ECVF_Cheat);
 
 UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -41,10 +42,13 @@ UDeftCharacterMovementComponent::UDeftCharacterMovementComponent(const FObjectIn
 	, SlideMinimumStartTime(0.f)
 	, SlideJumpSpeedMod(0.f)
 	, SlideJumpSpeedModMax(0.f)
+	, ImpulseFallDelay(0.f)
+	, ImpulseFallDelayMax(0.f)
 	, bIsJumping(false)
 	, bIsValidJumpCurve(false)
 	, bIsFalling(false)
 	, bIsSliding(false)
+	, bIsInImpulse(false)
 {
 }
 
@@ -94,6 +98,8 @@ void UDeftCharacterMovementComponent::BeginPlay()
 
 	SlideMinimumStartTime = 0.3;
 	SlideJumpSpeedModMax = 4.f;
+
+	ImpulseFallDelayMax = 2.f;
 }
 
 void UDeftCharacterMovementComponent::TickComponent(float aDeltaTime, enum ELevelTick aTickType, FActorComponentTickFunction* aThisTickFunction)
@@ -356,6 +362,12 @@ void UDeftCharacterMovementComponent::ProcessJumping(float aDeltaTime)
 
 void UDeftCharacterMovementComponent::ProcessFalling(float aDeltaTime)
 {
+	if (bIsInImpulse)
+	{
+		ProcessImpulseFallDelay(aDeltaTime);
+		return;
+	}
+
 	if (bIsFalling)
 	{
 		if (!FallCurveToUse)
@@ -474,6 +486,16 @@ void UDeftCharacterMovementComponent::ProcessSliding(float aDeltaTime)
 #endif
 }
 
+void UDeftCharacterMovementComponent::ProcessImpulseFallDelay(float aDeltaTime)
+{
+	if (!bIsInImpulse)
+		return;
+
+	ImpulseFallDelay += aDeltaTime;
+	if (ImpulseFallDelay >= ImpulseFallDelayMax)
+		bIsInImpulse = false;
+}
+
 // TODO: there is a bug where if you're walking into collision that you _can_ slide under, when you slide you'll be displaced horizontally 
 // as if it were an impassible wall instead of sliding under it
 void UDeftCharacterMovementComponent::DoSlide()
@@ -541,6 +563,13 @@ void UDeftCharacterMovementComponent::DoSlide()
 	OnSlideActionOccured.Broadcast(bIsSliding);
 
 	// TODO: add on screen trail effects
+}
+
+void UDeftCharacterMovementComponent::DoImpulse(const FVector& impulseDir)
+{
+	ImpulseFallDelay = 0.f; // delay our custom falling physics to take over till we actually launch ourselves
+	bIsInImpulse = true;
+	AddImpulse(impulseDir, true);
 }
 
 void UDeftCharacterMovementComponent::StopSlide()
@@ -729,6 +758,8 @@ void UDeftCharacterMovementComponent::DrawDebug()
 		DrawDebugJump();
 	if (CVar_DebugSlide.GetValueOnGameThread())
 		DrawDebugSlide();
+	if (CVar_DebugFall.GetValueOnGameThread())
+		DrawDebugFall();
 }
 
 void UDeftCharacterMovementComponent::DrawDebugJump()
@@ -742,6 +773,12 @@ void UDeftCharacterMovementComponent::DrawDebugSlide()
 	const float slideDistance = (Debug_SlideEndPos - Debug_SlideStartPos).Length();
 	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::White, TEXT("\n-Slide-"));
 	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::Cyan, FString::Printf(TEXT("\tDistance %.2f\n\tTime in slide: %.2f\n\tVelocity len: %.2f"), slideDistance, Debug_TimeInSlide, Velocity.Length()));
+}
+
+void UDeftCharacterMovementComponent::DrawDebugFall()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 0.005, bIsFalling ? FColor::Green : FColor::White, FString::Printf(TEXT("\tFalling duration: %.2f"), FallTime));
+	GEngine->AddOnScreenDebugMessage(-1, 0.005, FColor::White, TEXT("\n-Fall-"));
 }
 
 #endif//UE_BUILD_SHIPPING

@@ -2,6 +2,7 @@
 
 #include "Components/SphereComponent.h"
 #include "Components/SceneComponent.h"
+#include "DeftCharacterMovementComponent.h"
 #include "DeftPlayerCharacter.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -104,6 +105,12 @@ void UGrappleComponent::ProcessGrapple(float aDeltaTime)
 		return;
 	}
 
+	if (GrappleState == GrappleStateEnum::Extending)
+		ExtendGrapple(aDeltaTime);
+}
+
+void UGrappleComponent::ExtendGrapple(float aDeltaTime)
+{
 	const FVector grappleLoc = Grapple->GetComponentLocation();
 	FVector direction = GrappleMaxReachPoint - grappleLoc;
 
@@ -113,7 +120,7 @@ void UGrappleComponent::ProcessGrapple(float aDeltaTime)
 
 	if (direction.Length() < GrappleReachThreshold)
 	{
-		EndGrapple();
+		EndGrapple(false);
 		return;
 	}
 
@@ -135,7 +142,7 @@ void UGrappleComponent::ProcessGrapple(float aDeltaTime)
 	if (bIsBlockingHit)
 	{
 		Debug_GrappleMaxLocReached = hit.Location;
-		EndGrapple();
+		EndGrapple(true);
 		return;
 	}
 
@@ -144,9 +151,20 @@ void UGrappleComponent::ProcessGrapple(float aDeltaTime)
 	UKismetSystemLibrary::MoveComponentTo((USceneComponent*)Grapple, destination, Grapple->GetComponentRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
 }
 
-void UGrappleComponent::EndGrapple()
+void UGrappleComponent::EndGrapple(bool aApplyImpulse)
 {
 	bIsGrappleActive = false;
+
+	// TODO: conditionally pull TO the player or PLAYER to the thing depending on what you hit
+	if (aApplyImpulse)
+		if (UDeftCharacterMovementComponent* deftMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftCharacter->GetMovementComponent()))
+		{
+			const FVector grappleDir = Grapple->GetComponentLocation() - DeftCharacter->GetActorLocation();
+			const FVector impulseDir = grappleDir + (FVector::UpVector * 100.f);
+			// TODO: we gotta rotate it _up_ by some angle, but I don't know what angle that is just yet
+			// TODO: The speed
+			deftMovementComponent->DoImpulse(impulseDir * 2.f);
+		}
 }
 
 #if !UE_BUILD_SHIPPING

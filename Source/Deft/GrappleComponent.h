@@ -31,7 +31,9 @@ protected:
 
 	void UpdateGrappleAnchorLocation();
 	void ProcessGrapple(float aDeltaTime);
-	void EndGrapple();
+
+	void ExtendGrapple(float aDeltaTime);
+	void EndGrapple(bool aApplyImpulse);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Collision)
 	class USceneComponent* GrappleAnchor;
