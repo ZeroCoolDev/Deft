@@ -23,6 +23,7 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	const FVector2D& GetInputMoveVector() const { return InputMoveVector; }
+	class UPredictPathComponent* GetPredictPathComponent() const { return PredictPathComponent; }
 
 	FOnJumpInputPressedDelegate OnJumpInputPressed;
 
@@ -75,6 +76,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Grapple)
 	class UGrappleComponent* GrappleComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = PredictPath)
+	class UPredictPathComponent* PredictPathComponent;
 
 private:
 	FVector2D InputMoveVector;

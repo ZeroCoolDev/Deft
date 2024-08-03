@@ -11,6 +11,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GrappleComponent.h"
+#include "PredictPathComponent.h"
 
 // Sets default values
 ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectInitializer)
@@ -26,6 +27,7 @@ ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectIniti
 	, CameraMovementComponent(nullptr)
 	, ClimbComponent(nullptr)
 	, GrappleComponent(nullptr)
+	, PredictPathComponent(nullptr)
 	, InputMoveVector(FVector2D::ZeroVector)
 	, JumpDelayMaxTime(0.f)
 	, JumpDelayTime(0.f)
@@ -54,6 +56,7 @@ ADeftPlayerCharacter::ADeftPlayerCharacter(const FObjectInitializer& ObjectIniti
 	CameraMovementComponent = CreateDefaultSubobject<UCameraMovementComponent>(TEXT("CameraMovementComponent"));
 	ClimbComponent = CreateDefaultSubobject<UClimbComponent>(TEXT("ClimbComponent"));
 	GrappleComponent = CreateDefaultSubobject<UGrappleComponent>(TEXT("GrappleComponent"));
+	PredictPathComponent = CreateDefaultSubobject<UPredictPathComponent>(TEXT("PredictPathComponent"));
 }
 
 // Called when the game starts or when spawned
@@ -75,6 +78,13 @@ void ADeftPlayerCharacter::BeginPlay()
 	bIsJumpReleased = true;
 	JumpDelayMaxTime = 0.2f;
 	JumpDelayTime = JumpDelayMaxTime;
+
+	if (APlayerController* PC = static_cast<APlayerController*>(Controller))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("changing the view pitch min/max"));
+		PC->PlayerCameraManager->ViewPitchMin = -179.f;
+		PC->PlayerCameraManager->ViewPitchMax = 179.f;
+	}
 }
 
 bool ADeftPlayerCharacter::CanJumpInternal_Implementation() const

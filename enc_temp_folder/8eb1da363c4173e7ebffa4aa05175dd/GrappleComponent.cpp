@@ -22,7 +22,6 @@ UGrappleComponent::UGrappleComponent()
 	, GrappleReachThreshold(0.f)
 	, GrappleDistanceMax(0.f)
 	, GrappleExtendSpeed(0.f)
-	, GrapplePullSpeed(0.f)
 	, GrappleState(GrappleStateEnum::None)
 	, bIsGrappleActive(false)
 {
@@ -62,7 +61,7 @@ void UGrappleComponent::UpdateGrappleAnchorLocation()
 	{
 		FHitResult empty;
 		FVector camLocation = cameraComponent->GetComponentLocation();
-		camLocation += cameraComponent->GetRightVector() * 10.f;		// move it off to the side
+		camLocation += cameraComponent->GetRightVector() * 10.f;	// move it off to the side
 		//camLocation += cameraComponent->GetForwardVector() * 20.f;	// shift it forward for viewing TODO: take out, just for debug viewing
 		GrappleAnchor->K2_SetWorldLocation(camLocation, false, empty, true);
 	}
@@ -163,6 +162,15 @@ void UGrappleComponent::EndGrapple(bool aApplyImpulse)
 	if (aApplyImpulse)
 	{
 		CalculateAngleToReach(Grapple->GetComponentLocation());
+
+		//if (UDeftCharacterMovementComponent* deftMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftCharacter->GetMovementComponent()))
+		//{
+		//	const FVector grappleDir = Grapple->GetComponentLocation() - DeftCharacter->GetActorLocation();
+		//	const FVector impulseDir = grappleDir + (FVector::UpVector * 100.f);
+		//	// TODO: we gotta rotate it _up_ by some angle, but I don't know what angle that is just yet
+		//	// TODO: The speed
+		//	deftMovementComponent->DoImpulse(impulseDir * 2.f);
+		//}
 	}
 }
 
@@ -175,11 +183,11 @@ void UGrappleComponent::CalculateAngleToReach(const FVector& aTargetLocation)
 	FVector xBasis = DeftCharacter->GetActorForwardVector();
 	const FVector projX = (dirToGrapple.Dot(xBasis) / xBasis.Dot(xBasis)) * xBasis;
 
-	const float v0 = GrapplePullSpeed;							// initial velocity (i.e. speed)
-	const float y0 = 0.f;										// actors starting vertical height
-	const float y = FMath::Abs(aTargetLocation.Z - actorLoc.Z);	// vertical height of the grapple
-	const float x = projX.Length();								// horizontal distance to the grapple
-	const float g = -980.f;										//TODO: either take in, or read from WorldSettings on ctor
+	const float v0 = /*10.2;*/1500.f;									// initial velocity (i.e. speed)
+	const float y0 = 0.f;												// actors starting vertical height
+	const float y = /*3;*/FMath::Abs(aTargetLocation.Z - actorLoc.Z);	// vertical height of the grapple
+	const float x = /*8;*/ projX.Length();					// horizontal distance to the grapple
+	const float g = /*-9.8; */ -980.f; //TODO: either take in, or read from WorldSettings on ctor
 
 	// x = x0 + (v0x * t)
 	// y = y0 + (v0y * t) + 1/2gt^2
@@ -226,7 +234,7 @@ void UGrappleComponent::CalculateAngleToReach(const FVector& aTargetLocation)
 
 	UPredictPathComponent* predictPathComponent = DeftCharacter->GetPredictPathComponent();
 	TArray<FVector> path;
-	predictPathComponent->PredictPath_Parabola(GrapplePullSpeed, deg1, dirToGrapple, path);
+	predictPathComponent->PredictPath_Parabola(1500.f, deg1, dirToGrapple, path);
 	UE_LOG(LogTemp, Warning, TEXT("Predicted Path contains %d points"), path.Num());
 }
 

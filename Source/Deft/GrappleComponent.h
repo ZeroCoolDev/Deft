@@ -35,6 +35,8 @@ protected:
 	void ExtendGrapple(float aDeltaTime);
 	void EndGrapple(bool aApplyImpulse);
 
+	void CalculateAngleToReach(const FVector& aTargetLocation);
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Collision)
 	class USceneComponent* GrappleAnchor;
 
@@ -46,11 +48,16 @@ protected:
 	FVector GrappleMaxReachPoint;
 	float GrappleReachThreshold;	// how close the grapple needs to actually get to the max reach before we consider it complete
 	float GrappleDistanceMax;		// maximum distance grapple can reach
-	float GrappleSpeed;				// speed at which the grapple moves
+	float GrappleExtendSpeed;		// speed at which the grapple moves
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Collision)
+	float GrapplePullSpeed;			// speed at which the player is pulled by the grapple
 
 	GrappleStateEnum GrappleState;
 
 	bool bIsGrappleActive;
+
+	TArray<FVector> PredictedLine;
 
 #if !UE_BUILD_SHIPPING
 	void DrawDebug();
@@ -58,5 +65,7 @@ protected:
 	FVector Debug_GrappleLocThisFrame;
 	FVector Debug_GrappleMaxLocReached;
 	float Debug_GrappleDistance;
+	float Debug_GrappleLaunchDeg1;
+	float Debug_GrappleLaunchDeg2;
 #endif //!UE_BUILD_SHIPPING
 };
