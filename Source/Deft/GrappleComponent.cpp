@@ -226,7 +226,7 @@ void UGrappleComponent::CalculateAngleToReach(const FVector& aTargetLocation)
 
 	UPredictPathComponent* predictPathComponent = DeftCharacter->GetPredictPathComponent();
 	TArray<FVector> path;
-	predictPathComponent->PredictPath_Parabola(GrapplePullSpeed, deg1, dirToGrapple, path);
+	predictPathComponent->PredictPath_Parabola(GrapplePullSpeed, deg1, dirToGrapple, aTargetLocation, path); //TODO: obv can't use Debug_GrappleMaxLocReached need to use a non-debug variable
 	UE_LOG(LogTemp, Warning, TEXT("Predicted Path contains %d points"), path.Num());
 }
 
@@ -240,7 +240,7 @@ void UGrappleComponent::DrawDebug()
 	GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, TEXT("-Grapple-"));
 
 
-	DrawDebugLine(GetWorld(), GrappleAnchor->GetComponentLocation(), GrappleMaxReachPoint, FColor::Yellow);
+	//DrawDebugLine(GetWorld(), GrappleAnchor->GetComponentLocation(), GrappleMaxReachPoint, FColor::Yellow);
 
 	DrawDebugSphere(GetWorld(), Grapple->GetComponentLocation(), Grapple->GetUnscaledSphereRadius(), 12, FColor::Blue);
 	DrawDebugSphere(GetWorld(), GrappleAnchor->GetComponentLocation(), 10.f, 12, FColor::White);
@@ -249,6 +249,7 @@ void UGrappleComponent::DrawDebug()
 	if (!bIsGrappleActive)
 	{
 		DrawDebugSphere(GetWorld(), Debug_GrappleMaxLocReached, Grapple->GetUnscaledSphereRadius(), 12, FColor::Red);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsGrappleActive ? FColor::Green : FColor::White, FString::Printf(TEXT("Attachment Loc: (%.2f, %.2f, %.2f)"), Debug_GrappleMaxLocReached.X, Debug_GrappleMaxLocReached.Y, Debug_GrappleMaxLocReached.Z));
 		//DrawDebugSphere(GetWorld(), Debug_GrappleLocThisFrame, 5.f, 8, FColor::Purple, false, 0.5f);
 	}
 

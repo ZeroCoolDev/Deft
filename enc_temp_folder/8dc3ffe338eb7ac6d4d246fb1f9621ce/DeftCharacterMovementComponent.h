@@ -96,7 +96,6 @@ private:
 	float FallTime;
 	float PrevFallCurveVal;
 
-	// TODO: I think it would be cooler if instead of tilting leftit pulled back on the fov a bit and actually looked up
 	// Slide
 	float SlideTime;
 	float SlideSpeedMax;

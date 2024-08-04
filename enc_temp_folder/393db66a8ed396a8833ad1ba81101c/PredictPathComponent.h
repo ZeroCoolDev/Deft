@@ -24,7 +24,7 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	bool PredictPath_Parabola(float aSpeed, float aAngle, const FVector& aDir, const FVector& aPathEnd, TArray <FVector>& outPredictedPath);
+	bool PredictPath_Parabola(float aSpeed, float aAngle, const FVector& aDir, TArray <FVector>& outPredictedPath);
 
 private:
 	TWeakObjectPtr<class ADeftPlayerCharacter> DeftCharacter;
@@ -33,7 +33,6 @@ private:
 	TArray<FVector> PredictedPathPoints;
 	FVector PredictedDir;
 	FVector PredictedOrigin;
-	FVector PredictedEnd;
 
 	void DebugDraw();
 };
