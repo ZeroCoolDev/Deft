@@ -128,7 +128,7 @@ void UClimbComponent::ProcessLedgeUp(float aDeltaTime)
 
 	FLatentActionInfo latentInfo;
 	latentInfo.CallbackTarget = this;
-	UKismetSystemLibrary::MoveComponentTo((USceneComponent*)DeftCharacter->GetCapsuleComponent(), ledgeUpLoc, DeftCharacter->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);;
+	UKismetSystemLibrary::MoveComponentTo((USceneComponent*)DeftCharacter->GetCapsuleComponent(), ledgeUpLoc, DeftCharacter->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
 }
 
 void UClimbComponent::ProcessLedgeUpDipDelay(float aDeltaTime)

@@ -28,8 +28,6 @@ void UPredictPathComponent::BeginPlay()
 		UE_LOG(LogTemp, Error, TEXT("Failed to find DeftCharacter from owner!"));
 		return;
 	}
-
-	UE_LOG(LogTemp, Log, TEXT("UPredictPathComponent::BeginPlay UID: %d"), GetUniqueID());
 }
 
 
@@ -44,7 +42,7 @@ void UPredictPathComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 #endif //!UE_BUILD_SHIPPING
 }
 
-bool UPredictPathComponent::PredictPath_Parabola(float aSpeed, float aAngle, const FVector& aDir, TArray<FVector>& outPredictedPath)
+bool UPredictPathComponent::PredictPath_Parabola(float aSpeed, float aAngle, const FVector& aDir, const FVector& aPathEnd, TArray<FVector>& outPath)
 {
 	// Velocity is in the actors forward with a local pitch rotated by an aAngle 
 	FVector localRight = DeftCharacter->GetActorRightVector();
@@ -53,8 +51,8 @@ bool UPredictPathComponent::PredictPath_Parabola(float aSpeed, float aAngle, con
 
 #if !UE_BUILD_SHIPPING
 	PredictedOrigin = DeftCharacter->GetActorLocation();
-	PredictedDir = aDir;
-	//Debug_LandingSpot = velocity;
+	PredictedDir = aDir; //TODO: we need to rotate to face aDir because that's actually where the grapple was shot
+	PredictedEnd = aPathEnd;
 	FVector localUp = DeftCharacter->GetActorUpVector();
 	float angleCos = velocity.Dot(localUp);
 	float angleDeg = 90.f - FMath::RadiansToDegrees(FMath::Acos(angleCos));
@@ -101,8 +99,12 @@ bool UPredictPathComponent::PredictPath_Parabola(float aSpeed, float aAngle, con
 	const float stepSize = 0.05f;
 	float time = 0.f;
 
-	outPredictedPath.Empty();
-	//PredictionLine.Init(FVector::ZeroVector, deltaT / stepSize);
+	outPath.Empty();
+	
+	const FVector pathEnd2D = aPathEnd * FVector(1.f, 1.f, 0.f);
+	const FVector origin2D = PredictedOrigin * FVector(1.f, 1.f, 0.f);
+	// Used to compare with each point since since will be past our attachment point which we can ignore
+	const float distToEnd2D = FMath::Abs((aPathEnd - origin2D).Length());
 
 	while (time <= deltaT)
 	{
@@ -112,19 +114,41 @@ bool UPredictPathComponent::PredictPath_Parabola(float aSpeed, float aAngle, con
 		const float zPos = (velocityZ * time) - ((-gravity * (time * time)) / 2.f);
 		FVector pos = FVector(xPos, yPos, zPos);
 		// this ^ is the local agents position forward, so make sure we rotate it however the agent is rotated.
+		// TODO: we actually need to rotate again by the difference between agent's rotation and where the grapple actually hit
 		const FRotator actorRotation = DeftCharacter->GetActorRotation();
 		pos = pos.RotateAngleAxis(actorRotation.Pitch, -FVector::RightVector);
 		pos = pos.RotateAngleAxis(actorRotation.Yaw, FVector::UpVector);
 		pos = pos.RotateAngleAxis(actorRotation.Roll, -FVector::ForwardVector);
+		// Finally we need to translate the path to originate at our player
+		pos += PredictedOrigin;
 
-		outPredictedPath.Add(pos);
+		// need to start measuring from the origin versus 0,0,0
+		const FVector pos2D = (pos) * FVector(1.f, 1.f, 0.f);
+		const float distToPos2D = FMath::Abs((pos2D - origin2D).Length());
+
+		// if the point is not between the player and the final point disregard it.
+		const FVector endToPoint = pos - aPathEnd;
+		const FVector playerToEnd = aPathEnd - PredictedOrigin;
+		const float dot = playerToEnd.GetSafeNormal().Dot(endToPoint.GetSafeNormal());
+
+		// Only add the path up until the end
+		if (dot >= 0)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("adding pos: %s"), *pos.ToString());
+			outPath.Add(pos);
+		}
+		else // the moment we go further than the end we can stop
+		{
+			UE_LOG(LogTemp, Error, TEXT("Ignoring point %s because it's %.2d, past the end"), *pos.ToString(), dot);
+		}
+			//break;
 
 
 		time += stepSize;
 	}
 
 #if !UE_BUILD_SHIPPING
-	PredictedPathPoints = outPredictedPath;
+	PredictedPathPoints = outPath;
 #endif//UE_BUILD_SHIPPING
 
 	return false;
@@ -151,17 +175,20 @@ void UPredictPathComponent::DebugDraw()
 	DrawDebugLine(GetWorld(), origin, origin + (DeftCharacter->GetActorRightVector() * 70.f), FColor::Emerald);
 	DrawDebugLine(GetWorld(), origin, origin + (DeftCharacter->GetActorUpVector() * 70.f), FColor::Cyan);
 
-	//DrawDebugLine(GetWorld(), origin, origin + Debug_LandingSpot, FColor::Yellow);
+	DrawDebugLine(GetWorld(), origin, origin + (PredictedEnd - origin), FColor::Yellow);
 
 	DrawDebugSphere(GetWorld(), origin, 5.f, 12, FColor::White);
 
 	if (PredictedPathPoints.IsEmpty())
 		return;
 
-	UE_LOG(LogTemp, Warning, TEXT("Drawing Predicted Path for %d points"), PredictedPathPoints.Num());
-
 	// Draw predicted trajectory
+	FVector prevPoint = origin;
 	for (int i = 0, end = PredictedPathPoints.Num(); i < end; ++i)
-		DrawDebugSphere(GetWorld(), origin + PredictedPathPoints[i], 5.f, 12.f, FColor::Yellow);
+	{
+		DrawDebugLine(GetWorld(), prevPoint, PredictedPathPoints[i], FColor::Green);
+		prevPoint = PredictedPathPoints[i];
+		DrawDebugSphere(GetWorld(), PredictedPathPoints[i], 5.f, 12.f, i == 0 ? FColor::Green : i == end - 1 ? FColor::Purple : FColor::Yellow);
+	}
 }
 #endif//UE_BUILD_SHIPPING

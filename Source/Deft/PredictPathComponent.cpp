@@ -42,7 +42,7 @@ void UPredictPathComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 #endif //!UE_BUILD_SHIPPING
 }
 
-bool UPredictPathComponent::PredictPath_Parabola(float aSpeed, float aAngle, const FVector& aDir, const FVector& aPathEnd, TArray<FVector>& outPredictedPath)
+bool UPredictPathComponent::PredictPath_Parabola(float aSpeed, float aAngle, const FVector& aDir, const FVector& aPathEnd, TArray<FVector>& outPath)
 {
 	// Velocity is in the actors forward with a local pitch rotated by an aAngle 
 	FVector localRight = DeftCharacter->GetActorRightVector();
@@ -99,7 +99,7 @@ bool UPredictPathComponent::PredictPath_Parabola(float aSpeed, float aAngle, con
 	const float stepSize = 0.05f;
 	float time = 0.f;
 
-	outPredictedPath.Empty();
+	outPath.Empty();
 	
 	const FVector pathEnd2D = aPathEnd * FVector(1.f, 1.f, 0.f);
 	const FVector origin2D = PredictedOrigin * FVector(1.f, 1.f, 0.f);
@@ -119,23 +119,39 @@ bool UPredictPathComponent::PredictPath_Parabola(float aSpeed, float aAngle, con
 		pos = pos.RotateAngleAxis(actorRotation.Pitch, -FVector::RightVector);
 		pos = pos.RotateAngleAxis(actorRotation.Yaw, FVector::UpVector);
 		pos = pos.RotateAngleAxis(actorRotation.Roll, -FVector::ForwardVector);
+		// Finally we need to translate the path to originate at our player
+		pos += PredictedOrigin;
 
 		// need to start measuring from the origin versus 0,0,0
-		const FVector pos2D = (origin2D + pos) * FVector(1.f, 1.f, 0.f);
+		const FVector pos2D = (pos) * FVector(1.f, 1.f, 0.f);
 		const float distToPos2D = FMath::Abs((pos2D - origin2D).Length());
 
-		// Only add the path up until the end
-		if (distToPos2D <= distToEnd2D)
-			outPredictedPath.Add(pos);
-		else // the moment we go further than the end we can stop
-			break;
+		// if the point is not between the player and the final point disregard it.
+		const FVector endToPoint = (pos - aPathEnd).GetSafeNormal();
+		const FVector playerToEnd = (aPathEnd - PredictedOrigin).GetSafeNormal();
+		const float dot = playerToEnd.Dot(endToPoint);
 
+		//DrawDebugSphere(GetWorld(), aPathEnd + (endToPoint * 100.f), 8.f, 12, FColor::Cyan, true);
+		//DrawDebugLine(GetWorld(), aPathEnd, aPathEnd + (endToPoint * 100.f), FColor::Cyan, true);
+		//DrawDebugLine(GetWorld(), PredictedOrigin, PredictedOrigin + (playerToEnd * 100.f), FColor::Magenta, true);
+
+		// Only add the path up until the end
+		if (dot <= 0)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("adding pos: %s cuz %.2f"), *pos.ToString(), dot);
+			outPath.Add(pos);
+		}
+		else // the moment we go further than the end we can stop
+		{
+			UE_LOG(LogTemp, Error, TEXT("Ignoring point %s because it's %.2f, past the end"), *pos.ToString(), dot);
+			break;
+		}
 
 		time += stepSize;
 	}
 
 #if !UE_BUILD_SHIPPING
-	PredictedPathPoints = outPredictedPath;
+	PredictedPathPoints = outPath;
 #endif//UE_BUILD_SHIPPING
 
 	return false;
@@ -162,7 +178,7 @@ void UPredictPathComponent::DebugDraw()
 	DrawDebugLine(GetWorld(), origin, origin + (DeftCharacter->GetActorRightVector() * 70.f), FColor::Emerald);
 	DrawDebugLine(GetWorld(), origin, origin + (DeftCharacter->GetActorUpVector() * 70.f), FColor::Cyan);
 
-	DrawDebugLine(GetWorld(), origin, origin + (PredictedEnd - origin), FColor::Yellow);
+	//DrawDebugLine(GetWorld(), origin, origin + (PredictedEnd - origin), FColor::Yellow);
 
 	DrawDebugSphere(GetWorld(), origin, 5.f, 12, FColor::White);
 
@@ -170,7 +186,12 @@ void UPredictPathComponent::DebugDraw()
 		return;
 
 	// Draw predicted trajectory
+	FVector prevPoint = origin;
 	for (int i = 0, end = PredictedPathPoints.Num(); i < end; ++i)
-		DrawDebugSphere(GetWorld(), origin + PredictedPathPoints[i], 5.f, 12.f, i == 0 ? FColor::Green : i == end - 1 ? FColor::Purple : FColor::Yellow);
+	{
+		DrawDebugLine(GetWorld(), prevPoint, PredictedPathPoints[i], FColor::Green);
+		prevPoint = PredictedPathPoints[i];
+		DrawDebugSphere(GetWorld(), PredictedPathPoints[i], 5.f, 12.f, i == 0 ? FColor::Green : i == end - 1 ? FColor::Purple : FColor::Yellow);
+	}
 }
 #endif//UE_BUILD_SHIPPING

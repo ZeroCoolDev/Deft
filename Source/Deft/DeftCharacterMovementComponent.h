@@ -52,7 +52,7 @@ protected:
 	// (context) Step-Up is for small collisions in the velocity direction which allows automatic traversal "up" the "step" (think shallow stairs)
 	bool CanStepUp(const FHitResult& Hit) const;
 
-	void OnClimbActionLedgeUp(bool aIsStarted);
+	void OnForcedMovementAction(bool aIsStarted);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deft Movement", meta=(DisplayName="Jump Curve"))
 	UCurveFloat* JumpCurve;
@@ -107,6 +107,7 @@ private:
 	float SlideJumpSpeedMod;			// Jump Speed modifier based off slide speed to give the player a longer jump during slide
 	float SlideJumpSpeedModMax;
 
+	// TODO: I dont' remember what this is for xD
 	// Impulse
 	float ImpulseFallDelay;
 	float ImpulseFallDelayMax;

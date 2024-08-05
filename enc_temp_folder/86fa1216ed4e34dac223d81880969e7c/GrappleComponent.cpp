@@ -1,5 +1,6 @@
 #include "GrappleComponent.h"
 
+#include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/SceneComponent.h"
 #include "DeftCharacterMovementComponent.h"
@@ -22,8 +23,9 @@ UGrappleComponent::UGrappleComponent()
 	, GrappleReachThreshold(0.f)
 	, GrappleDistanceMax(0.f)
 	, GrappleExtendSpeed(0.f)
+	, GrapplePullSpeed(0.f)
 	, GrappleState(GrappleStateEnum::None)
-	, bIsGrappleActive(false)
+	, bIsGrappleExtendActive(false)
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
@@ -61,12 +63,12 @@ void UGrappleComponent::UpdateGrappleAnchorLocation()
 	{
 		FHitResult empty;
 		FVector camLocation = cameraComponent->GetComponentLocation();
-		camLocation += cameraComponent->GetRightVector() * 10.f;	// move it off to the side
+		camLocation += cameraComponent->GetRightVector() * 10.f;		// move it off to the side
 		//camLocation += cameraComponent->GetForwardVector() * 20.f;	// shift it forward for viewing TODO: take out, just for debug viewing
 		GrappleAnchor->K2_SetWorldLocation(camLocation, false, empty, true);
 	}
 
-	if (!bIsGrappleActive)
+	if (!bIsGrappleExtendActive)
 	{
 		FHitResult empty;
 		Grapple->K2_SetWorldLocation(GrappleAnchor->GetComponentLocation(), false, empty, true);
@@ -77,6 +79,8 @@ void UGrappleComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	// TODO if we attach the object that we hit to the anchor and just move the anchor back then that could be how we pull things to the player
+	// TODO conversely if just move the grapple origin to the attachment that could be how we pull the player to the anchor
 	UpdateGrappleAnchorLocation();
 	ProcessGrapple(DeltaTime);
 
@@ -87,10 +91,10 @@ void UGrappleComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 
 void UGrappleComponent::DoGrapple()
 {
-	if (bIsGrappleActive)
+	if (bIsGrappleExtendActive)
 		return;
 
-	bIsGrappleActive = true;
+	bIsGrappleExtendActive = true;
 	GrappleState = GrappleStateEnum::Extending;
 
 	if (UCameraComponent* cameraComponent = DeftCharacter->FindComponentByClass<UCameraComponent>())
@@ -101,15 +105,18 @@ void UGrappleComponent::DoGrapple()
 
 void UGrappleComponent::ProcessGrapple(float aDeltaTime)
 {
-	if (!bIsGrappleActive)
+	// Seems redundant if the UpdateGrappleAnchorLocation is also doing this
+	if (!bIsGrappleExtendActive)
 	{
 		FHitResult empty;
 		Grapple->K2_SetWorldLocation(GrappleAnchor->GetComponentLocation(), false, empty, true);
-		return;
 	}
 
 	if (GrappleState == GrappleStateEnum::Extending)
 		ExtendGrapple(aDeltaTime);
+
+	if (GrappleState == GrappleStateEnum::Pulling)
+		PullGrapple(aDeltaTime);
 }
 
 void UGrappleComponent::ExtendGrapple(float aDeltaTime)
@@ -145,7 +152,7 @@ void UGrappleComponent::ExtendGrapple(float aDeltaTime)
 	if (bIsBlockingHit)
 	{
 		Debug_GrappleMaxLocReached = hit.Location;
-		EndGrapple(true);
+		EndGrapple(true, hit.GetActor());
 		return;
 	}
 
@@ -154,27 +161,105 @@ void UGrappleComponent::ExtendGrapple(float aDeltaTime)
 	UKismetSystemLibrary::MoveComponentTo((USceneComponent*)Grapple, destination, Grapple->GetComponentRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
 }
 
-void UGrappleComponent::EndGrapple(bool aApplyImpulse)
+void UGrappleComponent::PullGrapple(float aDeltaTime) //TODO: need to just tell the main DeftCharacterMovementComponent that we are in something that overrides the movement
 {
-	bIsGrappleActive = false;
+	if (!bIsGrapplePullActive)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Grapple pull not active"));
+		GrappleState = GrappleStateEnum::None;
+		OnGrapplePullDelegate.Broadcast(false);
+		return;
+	}
+
+	// TODO: assuming we're being pulled to the attachment here
+
+	// Given a path of points, travel along the path at a set speed
+	if (GrapplePullIndex >= GrapplePullPath.Num())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Reached end of grapple path"));
+		bIsGrapplePullActive = false;
+		return;
+	}
+
+	// have a current waypoint, and a theshold of 
+	const FVector attachedActorLoc = AttachedActor->GetActorLocation();
+	FVector direction = GrapplePullPath[GrapplePullIndex] - attachedActorLoc;
+
+	UE_LOG(LogTemp, Warning, TEXT("Pulling from %s -> %s"), *attachedActorLoc.ToString(), *GrapplePullPath[GrapplePullIndex].ToString());
+//#if !UE_BUILD_SHIPPING
+//	Debug_GrappleDistance = direction.Length();
+//#endif //!UE_BUILD_SHIPPING
+
+	direction /= direction.Length();
+	const FVector destination = attachedActorLoc + (direction * 1500.f * aDeltaTime);
+//#if !UE_BUILD_SHIPPING
+//	Debug_GrappleLocThisFrame = destination;
+//	Debug_GrappleMaxLocReached = Debug_GrappleLocThisFrame;
+//#endif //!UE_BUILD_SHIPPING
+
+	// Collision check
+	//FCollisionQueryParams floorCheckCollisionParams;
+	//floorCheckCollisionParams.AddIgnoredActor(AttachedActor.Get());
+	//const UCapsuleComponent* capsulComponent = DeftCharacter->GetCapsuleComponent();
+	//FCollisionShape capsulShape = FCollisionShape::MakeCapsule(capsulComponent->GetScaledCapsuleRadius(), capsulComponent->GetScaledCapsuleHalfHeight());
+
+	//FHitResult hit;
+	//const bool bIsBlockingHit = GetWorld()->SweepSingleByChannel(hit, attachedActorLoc, destination, AttachedActor->GetActorRotation().Quaternion(), ECollisionChannel::ECC_WorldStatic, );
+	//if (bIsBlockingHit)
+	//{
+	//	bIsGrapplePullActive = false;
+	//	return;
+	//}
+
+	//TODO: I need to be more specific than just actor here because we need to use the capsul component for movement
+	FLatentActionInfo latentInfo;
+	latentInfo.CallbackTarget = this;
+	//UKismetSystemLibrary::MoveComponentTo((USceneComponent*)DeftCharacter->GetCapsuleComponent(), destination, AttachedActor->GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Move, latentInfo);
+
+	const FVector distToPoint = GrapplePullPath[GrapplePullIndex] - attachedActorLoc;
+	if (distToPoint.Length() < GrappleReachThreshold)
+	{
+		++GrapplePullIndex;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("dist between %s - %s of %.2f not close enough"), *attachedActorLoc.ToString(), *GrapplePullPath[GrapplePullIndex].ToString(), distToPoint.Length());
+	}
+}
+
+void UGrappleComponent::EndGrapple(bool aApplyImpulse, AActor* aHitActor/* = nullptr*/)
+{
+	bIsGrappleExtendActive = false;
 
 	// TODO: conditionally pull TO the player or PLAYER to the thing depending on what you hit
 	if (aApplyImpulse)
 	{
-		CalculateAngleToReach(Grapple->GetComponentLocation());
+		if (aHitActor->ActorHasTag(FName("Pullable")))
+		{
+			// pull attachment to the player
+			AttachedActor = TWeakObjectPtr<AActor>(aHitActor);
+			UE_LOG(LogTemp, Log, TEXT("Pulling attachment to the player"));
+		}
+		else
+		{
+			// pull actor to the attachment
+			AttachedActor = DeftCharacter;
+			UE_LOG(LogTemp, Log, TEXT("Pulling player to the attachment"));
+		}
 
-		//if (UDeftCharacterMovementComponent* deftMovementComponent = Cast<UDeftCharacterMovementComponent>(DeftCharacter->GetMovementComponent()))
-		//{
-		//	const FVector grappleDir = Grapple->GetComponentLocation() - DeftCharacter->GetActorLocation();
-		//	const FVector impulseDir = grappleDir + (FVector::UpVector * 100.f);
-		//	// TODO: we gotta rotate it _up_ by some angle, but I don't know what angle that is just yet
-		//	// TODO: The speed
-		//	deftMovementComponent->DoImpulse(impulseDir * 2.f);
-		//}
+		const float impulseAngle = CalculateAngleToReach(Grapple->GetComponentLocation());
+		CalculatePath(impulseAngle);
+		UE_LOG(LogTemp, Warning, TEXT("Predicted Path contains %d points"), GrapplePullPath.Num());
+
+
+		GrapplePullIndex = 0;
+		GrappleState = GrappleStateEnum::Pulling;
+		bIsGrapplePullActive = true;
+		OnGrapplePullDelegate.Broadcast(true);
 	}
 }
 
-void UGrappleComponent::CalculateAngleToReach(const FVector& aTargetLocation)
+float UGrappleComponent::CalculateAngleToReach(const FVector& aTargetLocation)
 {
 	const FVector actorLoc = DeftCharacter->GetActorLocation();
 	const FVector dirToGrapple = aTargetLocation - actorLoc; // vector from actor to grapple
@@ -183,11 +268,11 @@ void UGrappleComponent::CalculateAngleToReach(const FVector& aTargetLocation)
 	FVector xBasis = DeftCharacter->GetActorForwardVector();
 	const FVector projX = (dirToGrapple.Dot(xBasis) / xBasis.Dot(xBasis)) * xBasis;
 
-	const float v0 = /*10.2;*/1500.f;									// initial velocity (i.e. speed)
-	const float y0 = 0.f;												// actors starting vertical height
-	const float y = /*3;*/FMath::Abs(aTargetLocation.Z - actorLoc.Z);	// vertical height of the grapple
-	const float x = /*8;*/ projX.Length();					// horizontal distance to the grapple
-	const float g = /*-9.8; */ -980.f; //TODO: either take in, or read from WorldSettings on ctor
+	const float v0 = GrapplePullSpeed;							// initial velocity (i.e. speed)
+	const float y0 = 0.f;										// actors starting vertical height
+	const float y = FMath::Abs(aTargetLocation.Z - actorLoc.Z);	// vertical height of the grapple
+	const float x = projX.Length();								// horizontal distance to the grapple
+	const float g = -980.f;										//TODO: either take in, or read from WorldSettings on ctor
 
 	// x = x0 + (v0x * t)
 	// y = y0 + (v0y * t) + 1/2gt^2
@@ -213,7 +298,7 @@ void UGrappleComponent::CalculateAngleToReach(const FVector& aTargetLocation)
 	if (bSsq - fourAC < 0)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("no solution due to negative under the radical"));
-		return;
+		return 0.f;
 	}
 
 	const float thetaPos = (-b + FMath::Sqrt(bSsq - fourAC)) / twoA;
@@ -226,16 +311,28 @@ void UGrappleComponent::CalculateAngleToReach(const FVector& aTargetLocation)
 	const float deg2 = FMath::RadiansToDegrees(rads2);
 
 #if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Warning, TEXT("Angle %.2f or %.2f needed to reach grapple at velocity %.2f"), deg1, deg2, v0);
+	
 	Debug_GrappleLaunchDeg1 = deg1;
 	Debug_GrappleLaunchDeg2 = deg2;
 #endif//!UE_BUILD_SHIPPING
 
-	UE_LOG(LogTemp, Warning, TEXT("Angle %.2f or %.2f needed to reach grapple at velocity %.2f"), deg1, deg2, v0);
+	return deg1;
+}
 
+bool UGrappleComponent::CalculatePath(float aImpulseAngle)
+{
 	UPredictPathComponent* predictPathComponent = DeftCharacter->GetPredictPathComponent();
-	TArray<FVector> path;
-	predictPathComponent->PredictPath_Parabola(1500.f, deg1, dirToGrapple, path);
-	UE_LOG(LogTemp, Warning, TEXT("Predicted Path contains %d points"), path.Num());
+	if (!predictPathComponent)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Invalid PredictPathComponent"));
+		return false;
+	}
+
+	const FVector grappleLoc = Grapple->GetComponentLocation();
+	const FVector grappleDir = grappleLoc - DeftCharacter->GetActorLocation(); // vector from actor to grapple
+
+	return predictPathComponent->PredictPath_Parabola(GrapplePullSpeed, aImpulseAngle, grappleDir, grappleLoc, GrapplePullPath);
 }
 
 #if !UE_BUILD_SHIPPING
@@ -244,19 +341,20 @@ void UGrappleComponent::DrawDebug()
 	if (!CVar_DebugGrapple.GetValueOnGameThread())
 		return;
 
-	GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsGrappleActive ? FColor::Green : FColor::White, FString::Printf(TEXT("Distance till max: %.2f"), Debug_GrappleDistance));
+	GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsGrappleExtendActive ? FColor::Green : FColor::White, FString::Printf(TEXT("Distance till max: %.2f"), Debug_GrappleDistance));
 	GEngine->AddOnScreenDebugMessage(-1, 0.005f, FColor::White, TEXT("-Grapple-"));
 
 
-	DrawDebugLine(GetWorld(), GrappleAnchor->GetComponentLocation(), GrappleMaxReachPoint, FColor::Yellow);
+	//DrawDebugLine(GetWorld(), GrappleAnchor->GetComponentLocation(), GrappleMaxReachPoint, FColor::Yellow);
 
 	DrawDebugSphere(GetWorld(), Grapple->GetComponentLocation(), Grapple->GetUnscaledSphereRadius(), 12, FColor::Blue);
 	DrawDebugSphere(GetWorld(), GrappleAnchor->GetComponentLocation(), 10.f, 12, FColor::White);
 	DrawDebugSphere(GetWorld(), GrappleMaxReachPoint, 10.f, 12, FColor::Yellow);
 
-	if (!bIsGrappleActive)
+	if (!bIsGrappleExtendActive)
 	{
 		DrawDebugSphere(GetWorld(), Debug_GrappleMaxLocReached, Grapple->GetUnscaledSphereRadius(), 12, FColor::Red);
+		GEngine->AddOnScreenDebugMessage(-1, 0.005f, bIsGrappleExtendActive ? FColor::Green : FColor::White, FString::Printf(TEXT("Attachment Loc: (%.2f, %.2f, %.2f)"), Debug_GrappleMaxLocReached.X, Debug_GrappleMaxLocReached.Y, Debug_GrappleMaxLocReached.Z));
 		//DrawDebugSphere(GetWorld(), Debug_GrappleLocThisFrame, 5.f, 8, FColor::Purple, false, 0.5f);
 	}
 

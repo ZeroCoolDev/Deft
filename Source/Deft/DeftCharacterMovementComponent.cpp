@@ -4,6 +4,7 @@
 #include "ClimbComponent.h"
 #include "DeftPlayerCharacter.h"
 #include "DeftLocks.h"
+#include "GrappleComponent.h"
 #include "GameFramework/Character.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -57,7 +58,10 @@ void UDeftCharacterMovementComponent::BeginPlay()
 	Super::BeginPlay();
 
 	if (UClimbComponent* climbComponent = CharacterOwner->FindComponentByClass<UClimbComponent>())
-		climbComponent->OnLedgeUpDelegate.AddUObject(this, &UDeftCharacterMovementComponent::OnClimbActionLedgeUp);
+		climbComponent->OnLedgeUpDelegate.AddUObject(this, &UDeftCharacterMovementComponent::OnForcedMovementAction);
+
+	if (UGrappleComponent* grappleComponent = CharacterOwner->FindComponentByClass<UGrappleComponent>())
+		grappleComponent->OnGrapplePullDelegate.AddUObject(this, &UDeftCharacterMovementComponent::OnForcedMovementAction);
 
 	bIsFalling = false;
 	bIsJumping = false;
@@ -208,7 +212,7 @@ bool UDeftCharacterMovementComponent::CanStepUp(const FHitResult& Hit) const
 	return Super::CanStepUp(Hit);
 }
 
-void UDeftCharacterMovementComponent::OnClimbActionLedgeUp(bool aIsStarted)
+void UDeftCharacterMovementComponent::OnForcedMovementAction(bool aIsStarted)
 {
 	if (aIsStarted)
 	{
